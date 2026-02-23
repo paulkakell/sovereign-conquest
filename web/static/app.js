@@ -95,18 +95,29 @@
     return data;
   }
 
-	async function loadVersionBadge() {
-		if (!versionBadge) return;
+	const versionFallback = "v--.--.--";
+	let versionLoaded = false;
+
+	async function loadVersionBadge(attempt = 0) {
+		if (!versionBadge || versionLoaded) return;
 		try {
-			const res = await fetch("/api/healthz");
+			// The API may not be ready yet when the UI first loads (db init/universe seed).
+			// Retry a few times with backoff so the badge self-heals without a full page refresh.
+			const res = await fetch("/api/healthz", { cache: "no-store" });
 			const data = await res.json().catch(() => ({}));
-			if (data && data.version) {
+			if (res.ok && data && data.version) {
 				versionBadge.textContent = "v" + data.version;
-			} else {
-				versionBadge.textContent = "v--.--.--";
+				versionLoaded = true;
+				return;
 			}
 		} catch (e) {
-			versionBadge.textContent = "v--.--.--";
+			// ignored (retry below)
+		}
+
+		versionBadge.textContent = versionFallback;
+		if (attempt < 8 && !versionLoaded) {
+			const delay = Math.min(5000, 250 * Math.pow(2, attempt));
+			setTimeout(() => loadVersionBadge(attempt + 1), delay);
 		}
 	}
 

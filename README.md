@@ -24,7 +24,12 @@ Initial admin account (seeded)
 - Configure via environment variables:
   - INITIAL_ADMIN_USERNAME
   - INITIAL_ADMIN_PASSWORD
+- Bootstrap recovery behavior:
+  - If *no* admin users exist and the configured initial admin username already exists as a non-admin (for example from an older dev database), the server will promote that user to admin and reset its password to INITIAL_ADMIN_PASSWORD so you can regain access.
 - Admin "god mode": admin players have zero turn costs and can MOVE to any existing sector (teleport).
+
+UI note
+- The version badge is loaded from /api/healthz and may take a moment to populate during first boot while the API initializes.
 
 Build note
 - The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy, set GOPROXY accordingly (or vendor dependencies).

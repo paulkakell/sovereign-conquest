@@ -40,6 +40,8 @@ func main() {
 		log.Printf("initial admin ensure failed: %v", err)
 	} else if res.Created {
 		log.Printf("initial admin ensured: username=%s (password change required on first login)", res.Username)
+	} else if res.Promoted && res.PasswordReset {
+		log.Printf("initial admin recovered: username=%s promoted to admin and password reset (password change required on first login)", res.Username)
 	}
 
 	game.StartPortTicker(ctx, pool, cfg.PortTickSeconds)

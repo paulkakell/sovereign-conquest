@@ -1,5 +1,14 @@
 # Changelog
 
+## 01.03.01 (2026-02-23)
+
+Fix
+- UI: version badge now retries /api/healthz on load (with backoff) so it populates once the API becomes reachable.
+- Auth/bootstrap: if no admin users exist and the configured initial admin username already exists as a non-admin, the server promotes that user to admin and resets the password to the configured INITIAL_ADMIN_PASSWORD (password change still required on first login).
+
+Refs
+- SC-UI-001, SC-ADMIN-002 | Commit: N/A (no git metadata in provided artifact)
+
 ## 01.03.00 (2026-02-23)
 
 Additive

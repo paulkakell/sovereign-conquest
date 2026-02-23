@@ -15,8 +15,32 @@ import (
 )
 
 type InitialAdminResult struct {
-	Created  bool
-	Username string
+	Created       bool
+	Promoted      bool
+	PasswordReset bool
+	Username      string
+}
+
+type initialAdminPlan int
+
+const (
+	planCreateNew initialAdminPlan = iota
+	planEnsureExistingAdmin
+	planNoopExistingNonAdmin
+	planPromoteExisting
+)
+
+func decideInitialAdminPlan(userFound bool, existingIsAdmin bool, anyAdminsExist bool) initialAdminPlan {
+	if !userFound {
+		return planCreateNew
+	}
+	if existingIsAdmin {
+		return planEnsureExistingAdmin
+	}
+	if anyAdminsExist {
+		return planNoopExistingNonAdmin
+	}
+	return planPromoteExisting
 }
 
 // EnsureInitialAdmin creates (if missing) a single seeded admin account intended for
@@ -52,30 +76,75 @@ func EnsureInitialAdmin(ctx context.Context, pool *pgxpool.Pool, username, passw
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// If the username exists, do not escalate it to admin automatically.
+	// Lookup whether the configured initial admin username already exists.
 	var existingUserID string
 	var existingIsAdmin bool
-	err = tx.QueryRow(ctx, "SELECT id, is_admin FROM users WHERE username=$1", uname).Scan(&existingUserID, &existingIsAdmin)
-	if err == nil {
-		// Ensure the record is marked admin if it already is; otherwise leave as-is.
-		if existingIsAdmin {
-			// Ensure a player row exists for login.
-			if err := ensurePlayerForUser(ctx, tx, existingUserID, startSector, seasonID); err != nil {
-				return InitialAdminResult{}, err
-			}
-			if err := tx.Commit(ctx); err != nil {
-				return InitialAdminResult{}, err
-			}
-			return InitialAdminResult{Created: false, Username: uname}, nil
-		}
-		// Username exists but is not admin; do not promote.
+	userLookupErr := tx.QueryRow(ctx, "SELECT id, is_admin FROM users WHERE username=$1", uname).Scan(&existingUserID, &existingIsAdmin)
+	userFound := userLookupErr == nil
+	if userLookupErr != nil && !errors.Is(userLookupErr, pgx.ErrNoRows) {
+		return InitialAdminResult{}, userLookupErr
+	}
+
+	// Determine whether any admin user exists (needed to safely decide promotion behavior).
+	anyAdminsExist := false
+	var ok int
+	if err := tx.QueryRow(ctx, "SELECT 1 FROM users WHERE is_admin=true LIMIT 1").Scan(&ok); err == nil {
+		anyAdminsExist = true
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return InitialAdminResult{}, err
+	}
+
+	plan := decideInitialAdminPlan(userFound, existingIsAdmin, anyAdminsExist)
+	if plan == planNoopExistingNonAdmin {
+		// Username exists but is not admin, and an admin already exists elsewhere.
 		if err := tx.Commit(ctx); err != nil {
 			return InitialAdminResult{}, err
 		}
 		return InitialAdminResult{Created: false, Username: uname}, nil
 	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return InitialAdminResult{}, err
+
+	if plan == planEnsureExistingAdmin {
+		// Ensure a player row exists for login.
+		if err := ensurePlayerForUser(ctx, tx, existingUserID, startSector, seasonID); err != nil {
+			return InitialAdminResult{}, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return InitialAdminResult{}, err
+		}
+		return InitialAdminResult{Created: false, Username: uname}, nil
+	}
+
+	if plan == planPromoteExisting {
+		// Recovery path: if no admins exist, promote the configured username to admin and
+		// reset its password to the configured initial password.
+		//
+		// This prevents an "admin" username collision from permanently blocking bootstrap.
+		hash, err := auth.HashPassword(pw)
+		if err != nil {
+			return InitialAdminResult{}, err
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE users
+			SET is_admin=true,
+				must_change_password=true,
+				password_hash=$2,
+				password_changed_at=now()
+			WHERE id=$1
+		`, existingUserID, hash); err != nil {
+			return InitialAdminResult{}, err
+		}
+		if err := ensurePlayerForUser(ctx, tx, existingUserID, startSector, seasonID); err != nil {
+			return InitialAdminResult{}, err
+		}
+		var pid string
+		if err := tx.QueryRow(ctx, "SELECT id FROM players WHERE user_id=$1", existingUserID).Scan(&pid); err == nil {
+			_ = MarkDiscovered(ctx, tx, pid, startSector)
+			_ = InsertLog(ctx, tx, pid, "SYSTEM", "Initial admin bootstrap: account promoted to admin; password reset required.")
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return InitialAdminResult{}, err
+		}
+		return InitialAdminResult{Created: false, Promoted: true, PasswordReset: true, Username: uname}, nil
 	}
 
 	userID, err := util.NewID()
