@@ -1,5 +1,13 @@
 # Changelog
 
+## 01.02.01 (2026-02-23)
+
+Fix
+- Docker build: make the Go build stage more deployment-friendly by ensuring the output directory exists, allowing module sums to be generated during build, and disabling VCS stamping for artifact-only builds.
+
+Refs
+- SC-BUILD-001 | Commit: N/A (no git metadata in provided artifact)
+
 ## 01.02.00 (2026-02-23)
 
 Additive

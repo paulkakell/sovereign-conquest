@@ -15,6 +15,9 @@ Quick start
 3) Open:
    http://localhost:3000
 
+Build note
+- The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy, set GOPROXY accordingly (or vendor dependencies).
+
 Default ports
 - Web UI:  http://localhost:3000
 - API:     http://localhost:8080

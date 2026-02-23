@@ -2,13 +2,14 @@
 FROM golang:1.22-alpine AS build
 WORKDIR /src
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates git
 
 COPY go.mod ./
-RUN go mod download
+RUN go mod download -mod=mod
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/sovereign-api ./cmd/api
+RUN mkdir -p /out
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=mod -trimpath -buildvcs=false -o /out/sovereign-api ./cmd/api
 
 # Runtime stage
 FROM alpine:3.20
