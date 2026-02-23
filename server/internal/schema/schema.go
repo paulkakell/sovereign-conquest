@@ -231,6 +231,34 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_active_ends_at ON events(active, ends_at);
 CREATE INDEX IF NOT EXISTS idx_events_sector_id ON events(sector_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_active_sector ON events(sector_id) WHERE active=true;
+
+-- Phase 4: direct player-to-player messaging (including bug reports and abuse reports)
+CREATE TABLE IF NOT EXISTS direct_messages (
+	id bigserial PRIMARY KEY,
+	from_player_id text NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+	to_player_id text NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+	kind text NOT NULL DEFAULT 'USER',
+	subject text NOT NULL DEFAULT '',
+	body text NOT NULL,
+	related_message_id bigint REFERENCES direct_messages(id) ON DELETE SET NULL,
+	created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_direct_messages_to_player_created_at ON direct_messages(to_player_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_direct_messages_from_player_created_at ON direct_messages(from_player_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_direct_messages_kind_created_at ON direct_messages(kind, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS direct_message_attachments (
+	id bigserial PRIMARY KEY,
+	message_id bigint NOT NULL REFERENCES direct_messages(id) ON DELETE CASCADE,
+	filename text NOT NULL,
+	content_type text NOT NULL,
+	size_bytes bigint NOT NULL,
+	data bytea NOT NULL,
+	created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_direct_message_attachments_message_id ON direct_message_attachments(message_id);
 `
 
 func Ensure(ctx context.Context, pool *pgxpool.Pool) error {

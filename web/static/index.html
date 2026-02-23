@@ -4,13 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sovereign Conquest</title>
-  <link rel="stylesheet" href="style.css?v=01.03.02">
+  <link rel="stylesheet" href="style.css?v=01.04.00">
 </head>
 <body>
   <div class="wrap">
     <header class="header">
       <div class="title">Sovereign Conquest</div>
-      <div id="versionBadge" class="subtitle">v01.03.02</div>
+      <div class="subtitle">
+        <span id="versionBadge">v01.04.00</span><span class="muted"> | </span><a id="bugLink" href="bug.html" target="_blank" rel="noopener">Report A Bug</a>
+      </div>
     </header>
 
     <section id="auth" class="panel">
@@ -171,12 +173,31 @@
       </div>
 
       <div class="card">
+        <h3>Messages</h3>
+        <form id="dmForm" class="dmForm">
+          <div class="dmRow">
+            <input id="dmTo" placeholder="Recipient username" autocomplete="off">
+            <input id="dmSubject" placeholder="Subject (optional)" autocomplete="off">
+          </div>
+          <textarea id="dmBody" rows="3" placeholder="Message"></textarea>
+          <button type="submit">Send message</button>
+        </form>
+        <div id="dmMsg" class="msg"></div>
+
+        <div class="messagesHeader">
+          <span class="muted">Inbox (latest 20)</span>
+          <button id="dmRefreshBtn" class="ghost" type="button">Refresh inbox</button>
+        </div>
+        <div id="dmInbox" class="messages"></div>
+      </div>
+
+      <div class="card">
         <h3>Activity</h3>
         <div id="logList" class="logs"></div>
       </div>
     </section>
   </div>
 
-  <script src="app.js?v=01.03.02"></script>
+  <script src="app.js?v=01.04.00"></script>
 </body>
 </html>

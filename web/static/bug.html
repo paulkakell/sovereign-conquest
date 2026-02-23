@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Report A Bug - Sovereign Conquest</title>
+  <link rel="stylesheet" href="style.css?v=01.04.00">
+</head>
+<body>
+  <div class="wrap">
+    <header class="header">
+      <div class="title">Report A Bug</div>
+      <div class="subtitle" id="bugVersion">v01.04.00</div>
+    </header>
+
+    <section class="panel">
+      <div class="card">
+        <h3>Bug report</h3>
+        <div class="muted">This sends a message (with optional attachments) to the Admin account via in-game messaging.</div>
+
+        <form id="bugForm" class="bugForm">
+          <label>Title</label>
+          <input id="bugSubject" maxlength="120" required placeholder="Short summary">
+
+          <label>Description</label>
+          <textarea id="bugBody" rows="10" maxlength="8000" required placeholder="What happened? What did you expect? Steps to reproduce?"></textarea>
+
+          <label>Attachments (optional)</label>
+          <div class="muted">Up to 5 files, 5 MiB each (25 MiB total).</div>
+          <input id="bugFiles" type="file" multiple>
+
+          <button type="submit">Send bug report</button>
+        </form>
+
+        <div id="bugMsg" class="msg"></div>
+        <div id="bugHint" class="muted"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="bug.js?v=01.04.00"></script>
+</body>
+</html>

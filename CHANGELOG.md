@@ -1,5 +1,21 @@
 # Changelog
 
+## 01.04.00 (2026-02-23)
+
+Additive
+- Messaging: add direct in-game messaging between users (send by username) with an inbox panel in the UI.
+- Abuse handling: add a per-message "Report spam/abuse" action that forwards the reported message (and any attachments) to the Admin account via in-game messaging.
+- Bug reporting: add a "Report A Bug" link next to the version badge that opens a dedicated bug report window with optional file attachments; submissions are delivered to the Admin account via in-game messaging.
+
+Fix
+- UI/gameplay: command failures now display the server-provided explanation (for example "No warp to that sector") instead of generic error codes.
+
+Maintenance
+- Schema: add `direct_messages` and `direct_message_attachments` tables plus attachment download endpoint.
+
+Refs
+- SC-UI-003, SC-MSG-001, SC-MSG-002 | Commit: N/A (no git metadata in provided artifact)
+
 ## 01.03.02 (2026-02-23)
 
 Fix

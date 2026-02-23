@@ -5,7 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,6 +59,13 @@ func (s *Server) Router() http.Handler {
 		protected.Get("/api/state", s.handleState)
 		protected.Post("/api/command", s.handleCommand)
 		protected.Post("/api/change_password", s.handleChangePassword)
+		// Direct messages / bug reporting
+		protected.Get("/api/messages/inbox", s.handleInboxMessages)
+		protected.Get("/api/messages/sent", s.handleSentMessages)
+		protected.Post("/api/messages/send", s.handleSendMessage)
+		protected.Post("/api/messages/report", s.handleReportMessage)
+		protected.Get("/api/messages/attachments/{id}", s.handleDownloadMessageAttachment)
+		protected.Post("/api/bug_report", s.handleBugReport)
 	})
 
 	return r
@@ -398,6 +409,495 @@ func (s *Server) handleCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// ---- Direct messaging / bug reporting ----
+
+const (
+	maxDirectMessageSubjectLen = 120
+	maxDirectMessageBodyLen    = 4000
+	maxBugReportBodyLen        = 8000
+
+	maxAttachmentCount      = 5
+	maxAttachmentBytes      = 5 << 20  // 5 MiB each
+	maxTotalUploadBytes     = 25 << 20 // 25 MiB total request cap
+	maxMultipartMemory      = 8 << 20  // 8 MiB in-memory before spilling to disk
+	maxAttachmentNameLen    = 200
+	defaultMessageListLimit = 20
+	defaultMessageListMax   = 50
+)
+
+type sendMessageJSONRequest struct {
+	ToUsername string `json:"to_username"`
+	Subject    string `json:"subject"`
+	Body       string `json:"body"`
+}
+
+type reportMessageRequest struct {
+	MessageID int64 `json:"message_id"`
+}
+
+type attachmentInput struct {
+	Filename    string
+	ContentType string
+	Data        []byte
+}
+
+func (s *Server) handleInboxMessages(w http.ResponseWriter, r *http.Request) {
+	pid, ok := playerIDFrom(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "missing player context")
+		return
+	}
+
+	limit := parseLimit(r, defaultMessageListLimit, defaultMessageListMax)
+	msgs, err := game.LoadInboxDirectMessages(r.Context(), s.Pool, pid, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":       true,
+		"messages": msgs,
+	})
+}
+
+func (s *Server) handleSentMessages(w http.ResponseWriter, r *http.Request) {
+	pid, ok := playerIDFrom(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "missing player context")
+		return
+	}
+
+	limit := parseLimit(r, defaultMessageListLimit, defaultMessageListMax)
+	msgs, err := game.LoadSentDirectMessages(r.Context(), s.Pool, pid, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":       true,
+		"messages": msgs,
+	})
+}
+
+func (s *Server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
+	pid, ok := playerIDFrom(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "missing player context")
+		return
+	}
+
+	toUsername, subject, body, atts, parseErr := parseMessagePayload(w, r, maxDirectMessageBodyLen)
+	if parseErr != nil {
+		writeError(w, http.StatusBadRequest, parseErr.Error())
+		return
+	}
+
+	// Validate
+	toUsername = strings.TrimSpace(toUsername)
+	if len(toUsername) < 3 || len(toUsername) > 20 {
+		writeError(w, http.StatusBadRequest, "recipient username must be 3-20 chars")
+		return
+	}
+	if len(subject) > maxDirectMessageSubjectLen {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("subject too long (max %d)", maxDirectMessageSubjectLen))
+		return
+	}
+	body = strings.TrimSpace(body)
+	if body == "" {
+		writeError(w, http.StatusBadRequest, "message body cannot be empty")
+		return
+	}
+	if len(body) > maxDirectMessageBodyLen {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("message too long (max %d)", maxDirectMessageBodyLen))
+		return
+	}
+
+	ctx := r.Context()
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	toPID, err := game.LookupPlayerIDByUsername(ctx, tx, toUsername)
+	if errors.Is(err, game.ErrNotFound) {
+		writeError(w, http.StatusBadRequest, "unknown recipient username")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if toPID == pid {
+		writeError(w, http.StatusBadRequest, "cannot send a message to yourself")
+		return
+	}
+
+	msgID, err := game.InsertDirectMessage(ctx, tx, pid, toPID, game.MessageKindUser, strings.TrimSpace(subject), body, nil)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	for _, a := range atts {
+		if err := game.InsertDirectMessageAttachment(ctx, tx, msgID, a.Filename, a.ContentType, a.Data); err != nil {
+			writeError(w, http.StatusInternalServerError, "db error")
+			return
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":      true,
+		"message": "Message sent.",
+		"id":      msgID,
+	})
+}
+
+func (s *Server) handleReportMessage(w http.ResponseWriter, r *http.Request) {
+	pid, ok := playerIDFrom(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "missing player context")
+		return
+	}
+
+	var req reportMessageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if req.MessageID < 1 {
+		writeError(w, http.StatusBadRequest, "invalid message_id")
+		return
+	}
+
+	ctx := r.Context()
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	reporterUsername, err := game.LookupUsernameByPlayerID(ctx, tx, pid)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	reported, atts, err := game.LoadDirectMessageForReport(ctx, tx, pid, req.MessageID)
+	if errors.Is(err, game.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "message not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if reported.Kind != game.MessageKindUser {
+		writeError(w, http.StatusBadRequest, "only direct user messages can be reported")
+		return
+	}
+
+	adminPID, err := game.LookupAdminPlayerID(ctx, tx, s.Cfg.InitialAdminUser)
+	if errors.Is(err, game.ErrNotFound) {
+		writeError(w, http.StatusBadRequest, "admin account not available")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	subject := fmt.Sprintf("Spam/Abuse Report: message #%d", reported.ID)
+	body := game.FormatSpamReportBody(reporterUsername, reported)
+	related := reported.ID
+
+	reportMsgID, err := game.InsertDirectMessage(ctx, tx, pid, adminPID, game.MessageKindSpamReport, subject, body, &related)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	for _, a := range atts {
+		if err := game.InsertDirectMessageAttachment(ctx, tx, reportMsgID, a.Filename, a.ContentType, a.Data); err != nil {
+			writeError(w, http.StatusInternalServerError, "db error")
+			return
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":      true,
+		"message": "Reported to admin.",
+	})
+}
+
+func (s *Server) handleBugReport(w http.ResponseWriter, r *http.Request) {
+	pid, ok := playerIDFrom(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "missing player context")
+		return
+	}
+
+	// Only multipart is supported here (attachments).
+	r.Body = http.MaxBytesReader(w, r.Body, maxTotalUploadBytes)
+	if err := r.ParseMultipartForm(maxMultipartMemory); err != nil {
+		var mbe *http.MaxBytesError
+		if errors.As(err, &mbe) {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("upload too large (max %d bytes)", maxTotalUploadBytes))
+			return
+		}
+		writeError(w, http.StatusBadRequest, "invalid form data")
+		return
+	}
+
+	subject := strings.TrimSpace(r.FormValue("subject"))
+	if subject == "" {
+		subject = "Bug report"
+	}
+	if len(subject) > maxDirectMessageSubjectLen {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("title too long (max %d)", maxDirectMessageSubjectLen))
+		return
+	}
+
+	body := strings.TrimSpace(r.FormValue("body"))
+	if body == "" {
+		writeError(w, http.StatusBadRequest, "description cannot be empty")
+		return
+	}
+	if len(body) > maxBugReportBodyLen {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("description too long (max %d)", maxBugReportBodyLen))
+		return
+	}
+
+	files := []*multipart.FileHeader{}
+	if r.MultipartForm != nil {
+		files = r.MultipartForm.File["attachments"]
+	}
+	attachments, err := readAttachments(files)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	ctx := r.Context()
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	reporterUsername, err := game.LookupUsernameByPlayerID(ctx, tx, pid)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	adminPID, err := game.LookupAdminPlayerID(ctx, tx, s.Cfg.InitialAdminUser)
+	if errors.Is(err, game.ErrNotFound) {
+		writeError(w, http.StatusBadRequest, "admin account not available")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	fullSubject := fmt.Sprintf("Bug Report: %s", subject)
+	fullBody := fmt.Sprintf("Bug report submitted by %s.\n\n%s", reporterUsername, body)
+
+	msgID, err := game.InsertDirectMessage(ctx, tx, pid, adminPID, game.MessageKindBugReport, fullSubject, fullBody, nil)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	for _, a := range attachments {
+		if err := game.InsertDirectMessageAttachment(ctx, tx, msgID, a.Filename, a.ContentType, a.Data); err != nil {
+			writeError(w, http.StatusInternalServerError, "db error")
+			return
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":      true,
+		"message": "Bug report sent to admin.",
+		"id":      msgID,
+	})
+}
+
+func (s *Server) handleDownloadMessageAttachment(w http.ResponseWriter, r *http.Request) {
+	pid, ok := playerIDFrom(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "missing player context")
+		return
+	}
+	uid, ok := userIDFrom(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "missing user context")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	attID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || attID < 1 {
+		writeError(w, http.StatusBadRequest, "invalid attachment id")
+		return
+	}
+
+	// Determine admin status from users table.
+	isAdmin := false
+	var adminOK bool
+	if err := s.Pool.QueryRow(r.Context(), "SELECT is_admin FROM users WHERE id=$1", uid).Scan(&adminOK); err == nil {
+		isAdmin = adminOK
+	}
+
+	var filename, contentType string
+	var data []byte
+	if isAdmin {
+		filename, contentType, data, err = game.LoadDirectMessageAttachmentForAdmin(r.Context(), s.Pool, attID)
+	} else {
+		filename, contentType, data, err = game.LoadDirectMessageAttachmentForPlayer(r.Context(), s.Pool, attID, pid)
+	}
+	if errors.Is(err, game.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "attachment not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	// Avoid caching attachments.
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", sanitizeFilename(filename)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func parseLimit(r *http.Request, def, max int) int {
+	q := strings.TrimSpace(r.URL.Query().Get("limit"))
+	if q == "" {
+		return def
+	}
+	n, err := strconv.Atoi(q)
+	if err != nil {
+		return def
+	}
+	if n < 1 {
+		return def
+	}
+	if n > max {
+		return max
+	}
+	return n
+}
+
+func parseMessagePayload(w http.ResponseWriter, r *http.Request, maxBodyLen int) (toUsername, subject, body string, atts []attachmentInput, err error) {
+	ct := r.Header.Get("Content-Type")
+	if strings.HasPrefix(ct, "multipart/form-data") {
+		r.Body = http.MaxBytesReader(w, r.Body, maxTotalUploadBytes)
+		if perr := r.ParseMultipartForm(maxMultipartMemory); perr != nil {
+			var mbe *http.MaxBytesError
+			if errors.As(perr, &mbe) {
+				return "", "", "", nil, fmt.Errorf("upload too large (max %d bytes)", maxTotalUploadBytes)
+			}
+			return "", "", "", nil, fmt.Errorf("invalid form data")
+		}
+		toUsername = r.FormValue("to_username")
+		subject = r.FormValue("subject")
+		body = r.FormValue("body")
+		files := []*multipart.FileHeader{}
+		if r.MultipartForm != nil {
+			files = r.MultipartForm.File["attachments"]
+		}
+		parsed, perr := readAttachments(files)
+		if perr != nil {
+			return "", "", "", nil, perr
+		}
+		return toUsername, subject, body, parsed, nil
+	}
+
+	var req sendMessageJSONRequest
+	if derr := json.NewDecoder(r.Body).Decode(&req); derr != nil {
+		return "", "", "", nil, fmt.Errorf("invalid json")
+	}
+	return req.ToUsername, req.Subject, req.Body, nil, nil
+}
+
+func readAttachments(files []*multipart.FileHeader) ([]attachmentInput, error) {
+	if len(files) == 0 {
+		return nil, nil
+	}
+	if len(files) > maxAttachmentCount {
+		return nil, fmt.Errorf("too many attachments (max %d)", maxAttachmentCount)
+	}
+
+	total := int64(0)
+	out := make([]attachmentInput, 0, len(files))
+	for _, fh := range files {
+		if fh == nil {
+			continue
+		}
+		if fh.Size > maxAttachmentBytes {
+			return nil, fmt.Errorf("attachment too large: %s (max %d bytes)", sanitizeFilename(fh.Filename), maxAttachmentBytes)
+		}
+		total += fh.Size
+		if total > maxTotalUploadBytes {
+			return nil, fmt.Errorf("attachments exceed total upload limit (%d bytes)", maxTotalUploadBytes)
+		}
+
+		f, err := fh.Open()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read attachment")
+		}
+		bs, rerr := io.ReadAll(io.LimitReader(f, maxAttachmentBytes+1))
+		_ = f.Close()
+		if rerr != nil {
+			return nil, fmt.Errorf("failed to read attachment")
+		}
+		if int64(len(bs)) > maxAttachmentBytes {
+			return nil, fmt.Errorf("attachment too large: %s (max %d bytes)", sanitizeFilename(fh.Filename), maxAttachmentBytes)
+		}
+
+		ct := fh.Header.Get("Content-Type")
+		if ct == "" {
+			ct = http.DetectContentType(bs)
+		}
+
+		name := sanitizeFilename(fh.Filename)
+		out = append(out, attachmentInput{Filename: name, ContentType: ct, Data: bs})
+	}
+	return out, nil
+}
+
+func sanitizeFilename(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "attachment"
+	}
+	name = filepath.Base(name)
+	if len(name) > maxAttachmentNameLen {
+		name = name[:maxAttachmentNameLen]
+	}
+	return name
 }
 
 type softWipeRequest struct {

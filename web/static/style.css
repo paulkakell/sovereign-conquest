@@ -44,6 +44,22 @@ input, select {
 }
 input:focus, select:focus { border-color: var(--accent); }
 
+textarea {
+  width: 100%;
+  background: #0b111b;
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 10px;
+  border-radius: 8px;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+}
+textarea:focus { border-color: var(--accent); }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
 button {
   margin-top: 12px;
   background: var(--accent);
@@ -99,6 +115,20 @@ button.ghost:hover { border-color: var(--accent); }
 
 .cmd { display: grid; grid-template-columns: 1fr 120px; gap: 10px; }
 .cmd button { margin-top: 0; }
+
+.dmRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 900px) { .dmRow { grid-template-columns: 1fr; } }
+
+.messagesHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.messages { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #0b111b; }
+.message { padding: 8px 0; border-bottom: 1px dashed #1a2737; }
+.message:last-child { border-bottom: none; }
+.message .meta { color: var(--muted); font-size: 11px; }
+.message .subject { margin-top: 4px; font-size: 12px; color: var(--accent); white-space: pre-wrap; }
+.message .body { margin-top: 4px; font-size: 12px; white-space: pre-wrap; }
+.message .msgActions { margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.message .attBtn { background: transparent; color: var(--text); border: 1px solid var(--line); padding: 6px 10px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.message .attBtn:hover { border-color: var(--accent); }
 
 .logs { max-height: 320px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #0b111b; }
 .log { padding: 8px 0; border-bottom: 1px dashed #1a2737; }

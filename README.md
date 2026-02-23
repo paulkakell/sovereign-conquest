@@ -30,6 +30,8 @@ Initial admin account (seeded)
 
 UI note
 - The login header shows the build version immediately; once the API is reachable, the UI overwrites it with the live backend version from /api/healthz.
+- The header includes a "Report A Bug" link which opens a separate bug report window. Bug reports (with optional attachments) are delivered to the Admin account via in-game direct messaging.
+- The in-game "Messages" card provides direct user-to-user messaging (recipient must be specified by username). Each message includes a "Report spam/abuse" action which forwards the message to the Admin account.
 
 Build note
 - The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy, set GOPROXY accordingly (or vendor dependencies).

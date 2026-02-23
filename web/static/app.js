@@ -62,6 +62,14 @@
   const cmdForm = document.getElementById("cmdForm");
   const cmdInput = document.getElementById("cmdInput");
 
+  const dmForm = document.getElementById("dmForm");
+  const dmTo = document.getElementById("dmTo");
+  const dmSubject = document.getElementById("dmSubject");
+  const dmBody = document.getElementById("dmBody");
+  const dmMsg = document.getElementById("dmMsg");
+  const dmInbox = document.getElementById("dmInbox");
+  const dmRefreshBtn = document.getElementById("dmRefreshBtn");
+
   function getToken() {
     return localStorage.getItem(tokenKey) || "";
   }
@@ -89,7 +97,7 @@
     const res = await fetch(path, opts);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const msg = data && data.error ? data.error : "Request failed";
+      const msg = data && (data.message || data.error) ? (data.message || data.error) : "Request failed";
       throw new Error(msg);
     }
     return data;
@@ -246,16 +254,160 @@
 		hidePasswordChange();
 		updateUI(data.state, data.sector, data.logs);
 		showGame();
+		await refreshInbox();
 		setMsg(cmdMsg, "", false);
   }
 
   async function sendCommand(cmd) {
-    const data = await api("/api/command", {
+    const t = getToken();
+    const headers = { "Content-Type": "application/json" };
+    if (t) headers["Authorization"] = "Bearer " + t;
+
+    const res = await fetch("/api/command", {
       method: "POST",
+      headers,
       body: JSON.stringify(cmd)
     });
-    updateUI(data.state, data.sector, data.logs);
-    setMsg(cmdMsg, data.ok ? data.message : data.message, !data.ok);
+
+    const data = await res.json().catch(() => ({}));
+
+    // The command endpoint can return state/logs even on validation failures (HTTP 400).
+    if (data && data.state && data.sector && data.logs) {
+      updateUI(data.state, data.sector, data.logs);
+    }
+
+    if (!res.ok) {
+      setMsg(cmdMsg, (data && (data.message || data.error)) ? (data.message || data.error) : "Request failed", true);
+      await refreshInbox();
+      return;
+    }
+
+    setMsg(cmdMsg, data.message || "", !data.ok);
+    await refreshInbox();
+  }
+
+  function renderInbox(messages) {
+    if (!dmInbox) return;
+    dmInbox.innerHTML = "";
+
+    if (!messages || messages.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "muted";
+      empty.textContent = "No messages.";
+      dmInbox.appendChild(empty);
+      return;
+    }
+
+    for (const m of messages) {
+      const wrap = document.createElement("div");
+      wrap.className = "message";
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const at = m.created_at ? new Date(m.created_at).toLocaleString() : "";
+      const kind = m.kind && m.kind !== "USER" ? ` [${m.kind}]` : "";
+      meta.textContent = `${at} | From ${m.from}${kind}`;
+      wrap.appendChild(meta);
+
+      if (m.subject) {
+        const subj = document.createElement("div");
+        subj.className = "subject";
+        subj.textContent = m.subject;
+        wrap.appendChild(subj);
+      }
+
+      const body = document.createElement("div");
+      body.className = "body";
+      body.textContent = m.body || "";
+      wrap.appendChild(body);
+
+      const actions = document.createElement("div");
+      actions.className = "msgActions";
+
+		if (m.kind === "USER") {
+			const report = document.createElement("a");
+			report.href = "#";
+			report.textContent = "Report spam/abuse";
+			report.addEventListener("click", async (e) => {
+				e.preventDefault();
+				await reportMessage(m.id);
+			});
+			actions.appendChild(report);
+		}
+
+      if (m.attachments && m.attachments.length) {
+        for (const a of m.attachments) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "attBtn";
+          btn.textContent = `Download: ${a.filename}`;
+          btn.addEventListener("click", async () => {
+            await downloadAttachment(a.id, a.filename);
+          });
+          actions.appendChild(btn);
+        }
+      }
+
+      wrap.appendChild(actions);
+      dmInbox.appendChild(wrap);
+    }
+  }
+
+  async function refreshInbox() {
+    if (!dmInbox) return;
+    if (!getToken()) {
+      dmInbox.innerHTML = "";
+      return;
+    }
+
+    try {
+      const data = await api("/api/messages/inbox?limit=20", { method: "GET" });
+      renderInbox(data.messages || []);
+    } catch (e) {
+      // Non-fatal; keep core gameplay usable.
+    }
+  }
+
+  async function sendDirectMessage(toUsername, subject, body) {
+    const payload = { to_username: toUsername, subject, body };
+    return api("/api/messages/send", { method: "POST", body: JSON.stringify(payload) });
+  }
+
+  async function reportMessage(messageID) {
+    try {
+      await api("/api/messages/report", { method: "POST", body: JSON.stringify({ message_id: messageID }) });
+      setMsg(dmMsg, "Reported to admin.", false);
+      await refreshInbox();
+    } catch (e) {
+      setMsg(dmMsg, e.message || String(e), true);
+    }
+  }
+
+  async function downloadAttachment(attachmentID, filename) {
+    const t = getToken();
+    if (!t) {
+      setMsg(dmMsg, "Not logged in.", true);
+      return;
+    }
+
+    const res = await fetch(`/api/messages/attachments/${attachmentID}`, {
+      headers: { "Authorization": "Bearer " + t }
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const msg = data && (data.message || data.error) ? (data.message || data.error) : "Download failed";
+      setMsg(dmMsg, msg, true);
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || "attachment";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
 
   function parseCommandLine(line) {
@@ -455,7 +607,36 @@
 		hidePasswordChange();
     setMsg(authMsg, "Signed out.", false);
     setMsg(cmdMsg, "", false);
+		if (dmInbox) dmInbox.innerHTML = "";
+		if (dmMsg) setMsg(dmMsg, "", false);
   });
+
+	// Direct messaging
+	if (dmRefreshBtn) {
+		dmRefreshBtn.addEventListener("click", async () => {
+			try { await refreshInbox(); } catch (_) {}
+		});
+	}
+	if (dmForm) {
+		dmForm.addEventListener("submit", async (e) => {
+			e.preventDefault();
+			const to = (dmTo.value || "").trim();
+			const subject = (dmSubject.value || "").trim();
+			const body = (dmBody.value || "").trim();
+			if (!to || !body) {
+				setMsg(dmMsg, "Recipient username and message body are required.", true);
+				return;
+			}
+			try {
+				await sendDirectMessage(to, subject, body);
+				dmBody.value = "";
+				setMsg(dmMsg, "Message sent.", false);
+				await refreshInbox();
+			} catch (err) {
+				setMsg(dmMsg, err.message || String(err), true);
+			}
+		});
+	}
 
   // Command form
   cmdForm.addEventListener("submit", async (e) => {
