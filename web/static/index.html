@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sovereign Conquest</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="header">
+      <div class="title">Sovereign Conquest</div>
+      <div class="subtitle">Phase 3</div>
+    </header>
+
+    <section id="auth" class="panel">
+      <h2>Access</h2>
+
+      <div class="grid2">
+        <div class="card">
+          <h3>Create account</h3>
+          <form id="registerForm">
+            <label>Username</label>
+            <input id="regUser" autocomplete="username" minlength="3" maxlength="20" required>
+            <label>Password</label>
+            <input id="regPass" type="password" autocomplete="new-password" minlength="8" maxlength="100" required>
+            <button type="submit">Register</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>Sign in</h3>
+          <form id="loginForm">
+            <label>Username</label>
+            <input id="logUser" autocomplete="username" minlength="3" maxlength="20" required>
+            <label>Password</label>
+            <input id="logPass" type="password" autocomplete="current-password" minlength="8" maxlength="100" required>
+            <button type="submit">Login</button>
+          </form>
+        </div>
+      </div>
+
+      <div id="authMsg" class="msg"></div>
+    </section>
+
+    <section id="game" class="panel hidden">
+      <div class="topbar">
+        <div>
+          <div class="kv"><span class="k">Pilot</span><span id="pilotName" class="v"></span></div>
+          <div class="kv"><span class="k">Corp</span><span id="corpName" class="v"></span></div>
+        </div>
+        <div>
+          <div class="kv"><span class="k">Season</span><span id="seasonName" class="v"></span></div>
+          <div class="kv"><span class="k">Sector</span><span id="sectorId" class="v"></span></div>
+        </div>
+        <div>
+          <div class="kv"><span class="k">Credits</span><span id="credits" class="v"></span></div>
+          <div class="kv"><span class="k">Turns</span><span id="turns" class="v"></span></div>
+        </div>
+        <div>
+          <div class="kv"><span class="k">Cargo</span><span id="cargo" class="v"></span></div>
+          <div class="kv"><span class="k">Cap</span><span id="cargoCap" class="v"></span></div>
+        </div>
+        <div class="right">
+          <button id="refreshBtn" class="ghost">Refresh</button>
+          <button id="logoutBtn" class="ghost">Logout</button>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h3>Sector scan</h3>
+          <div class="kv"><span class="k">Name</span><span id="sectorName" class="v"></span></div>
+          <div class="kv"><span class="k">Warps</span><span id="warps" class="v"></span></div>
+
+          <div id="eventBox" class="hidden">
+            <div class="kv"><span class="k">Event</span><span id="eventTitle" class="v"></span></div>
+            <div class="kv"><span class="k">Effect</span><span id="eventEffect" class="v"></span></div>
+            <div class="kv"><span class="k">Ends</span><span id="eventEnds" class="v"></span></div>
+            <div id="eventDesc" class="muted"></div>
+          </div>
+
+          <div class="actions">
+            <button id="scanBtn">Scan</button>
+            <div class="inline">
+              <input id="moveTo" type="number" min="1" placeholder="Sector id">
+              <button id="moveBtn">Move</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Port</h3>
+          <div id="noPort" class="muted">No port in this sector.</div>
+
+          <div id="portPanel" class="hidden">
+            <table class="port">
+              <thead>
+                <tr>
+                  <th>Commodity</th>
+                  <th>Mode</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Ore</td>
+                  <td id="pOreMode"></td>
+                  <td id="pOreQty"></td>
+                  <td id="pOrePrice"></td>
+                </tr>
+                <tr>
+                  <td>Organics</td>
+                  <td id="pOrgMode"></td>
+                  <td id="pOrgQty"></td>
+                  <td id="pOrgPrice"></td>
+                </tr>
+                <tr>
+                  <td>Equipment</td>
+                  <td id="pEqMode"></td>
+                  <td id="pEqQty"></td>
+                  <td id="pEqPrice"></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="trade">
+              <select id="tradeAction">
+                <option value="BUY">BUY</option>
+                <option value="SELL">SELL</option>
+              </select>
+              <select id="tradeCommodity">
+                <option value="ORE">ORE</option>
+                <option value="ORGANICS">ORGANICS</option>
+                <option value="EQUIPMENT">EQUIPMENT</option>
+              </select>
+              <input id="tradeQty" type="number" min="1" value="10">
+              <button id="tradeBtn">Trade</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Command line</h3>
+        <form id="cmdForm" class="cmd">
+          <input id="cmdInput" placeholder="SCAN | MOVE 12 | TRADE BUY ORE 10 | MARKET | ROUTE | EVENTS | PLANET | CORP INFO | RANKINGS | HELP">
+          <button type="submit">Send</button>
+        </form>
+        <div class="actions">
+          <button id="marketBtn" class="ghost">Market</button>
+          <button id="routeBtn" class="ghost">Route</button>
+          <button id="eventsBtn" class="ghost">Events</button>
+        </div>
+        <div id="cmdMsg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <h3>Activity</h3>
+        <div id="logList" class="logs"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
