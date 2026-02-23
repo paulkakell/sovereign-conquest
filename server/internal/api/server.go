@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"sovereignconquest/internal/auth"
@@ -50,6 +52,7 @@ func (s *Server) Router() http.Handler {
 		protected.Use(s.authMiddleware)
 		protected.Get("/api/state", s.handleState)
 		protected.Post("/api/command", s.handleCommand)
+		protected.Post("/api/change_password", s.handleChangePassword)
 	})
 
 	return r
@@ -58,6 +61,7 @@ func (s *Server) Router() http.Handler {
 type ctxKey string
 
 const ctxPlayerID ctxKey = "player_id"
+const ctxUserID ctxKey = "user_id"
 
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -73,12 +77,19 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		ctx := context.WithValue(r.Context(), ctxPlayerID, claims.PlayerID)
+		ctx = context.WithValue(ctx, ctxUserID, claims.UserID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 func playerIDFrom(ctx context.Context) (string, bool) {
 	v := ctx.Value(ctxPlayerID)
+	id, ok := v.(string)
+	return id, ok
+}
+
+func userIDFrom(ctx context.Context) (string, bool) {
+	v := ctx.Value(ctxUserID)
 	id, ok := v.(string)
 	return id, ok
 }
@@ -93,6 +104,11 @@ type authResponse struct {
 	State  game.PlayerState `json:"state"`
 	Sector game.SectorView  `json:"sector"`
 	Logs   []game.LogEntry  `json:"logs,omitempty"`
+}
+
+type changePasswordRequest struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +142,27 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = tx.Rollback(r.Context()) }()
 
+	// Pick a valid starting sector (do not assume sector 1 exists).
+	var startSector int
+	if err := tx.QueryRow(r.Context(), "SELECT id FROM sectors ORDER BY id LIMIT 1").Scan(&startSector); err != nil {
+		writeError(w, http.StatusInternalServerError, "universe not initialized")
+		return
+	}
+
+	// Ensure there is an active season.
+	var seasonID int
+	err = tx.QueryRow(r.Context(), "SELECT id FROM seasons WHERE active=true ORDER BY id DESC LIMIT 1").Scan(&seasonID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		var next int
+		_ = tx.QueryRow(r.Context(), "SELECT COALESCE(MAX(id),0)+1 FROM seasons").Scan(&next)
+		name := fmt.Sprintf("Season %d", next)
+		err = tx.QueryRow(r.Context(), "INSERT INTO seasons(name, active, started_at) VALUES ($1,true,now()) RETURNING id", name).Scan(&seasonID)
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
 	var userID, playerID string
 	userID, err = util.NewID()
 	if err != nil {
@@ -144,12 +181,16 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		RETURNING id
 	`, userID, req.Username, hash).Scan(&userID)
 	if err != nil {
-		// likely unique violation
-		writeError(w, http.StatusBadRequest, "username unavailable")
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			writeError(w, http.StatusBadRequest, "username unavailable")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
-	// Player starts in sector 1 with basic stats.
+	// Player starts in a valid seed sector with basic stats.
 	err = tx.QueryRow(r.Context(), `
 		INSERT INTO players(id, user_id, credits, turns, turns_max, sector_id, cargo_max, last_turn_regen, season_id)
 		VALUES (
@@ -157,16 +198,16 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 			$3, $4, $5,
 			$6, $7,
 			$8,
-			(SELECT id FROM seasons WHERE active=true ORDER BY id DESC LIMIT 1)
+			$9
 		)
 		RETURNING id
-	`, playerID, userID, int64(1000), 100, 100, 1, 30, now).Scan(&playerID)
+	`, playerID, userID, int64(1000), 100, 100, startSector, 30, now, seasonID).Scan(&playerID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
-	_ = game.MarkDiscovered(r.Context(), tx, playerID, 1)
+	_ = game.MarkDiscovered(r.Context(), tx, playerID, startSector)
 	_ = game.InsertLog(r.Context(), tx, playerID, "SYSTEM", "Welcome to Sovereign Conquest. Start with SCAN, then MOVE and TRADE.")
 
 	if err := tx.Commit(r.Context()); err != nil {
@@ -226,6 +267,52 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, authResponse{Token: token, State: state, Sector: sector, Logs: logs})
+}
+
+func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
+	uid, ok := userIDFrom(r.Context())
+	if !ok || uid == "" {
+		writeError(w, http.StatusUnauthorized, "missing user context")
+		return
+	}
+
+	var req changePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if len(req.NewPassword) < 8 || len(req.NewPassword) > 100 {
+		writeError(w, http.StatusBadRequest, "password must be 8-100 chars")
+		return
+	}
+
+	var hash string
+	if err := s.Pool.QueryRow(r.Context(), "SELECT password_hash FROM users WHERE id=$1", uid).Scan(&hash); err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if !auth.CheckPassword(hash, req.OldPassword) {
+		writeError(w, http.StatusUnauthorized, "invalid credentials")
+		return
+	}
+
+	newHash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update password")
+		return
+	}
+
+	_, err = s.Pool.Exec(r.Context(), `
+		UPDATE users
+		SET password_hash=$2, must_change_password=false, password_changed_at=now()
+		WHERE id=$1
+	`, uid, newHash)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {

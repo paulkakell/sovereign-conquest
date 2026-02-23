@@ -4,6 +4,10 @@
   const authSection = document.getElementById("auth");
   const gameSection = document.getElementById("game");
 
+	const versionBadge = document.getElementById("versionBadge");
+	const authGrid = document.getElementById("authGrid");
+	const pwCard = document.getElementById("pwCard");
+
   const authMsg = document.getElementById("authMsg");
   const cmdMsg = document.getElementById("cmdMsg");
 
@@ -91,6 +95,21 @@
     return data;
   }
 
+	async function loadVersionBadge() {
+		if (!versionBadge) return;
+		try {
+			const res = await fetch("/api/healthz");
+			const data = await res.json().catch(() => ({}));
+			if (data && data.version) {
+				versionBadge.textContent = "v" + data.version;
+			} else {
+				versionBadge.textContent = "v--.--.--";
+			}
+		} catch (e) {
+			versionBadge.textContent = "v--.--.--";
+		}
+	}
+
   function showGame() {
     authSection.classList.add("hidden");
     gameSection.classList.remove("hidden");
@@ -100,6 +119,16 @@
     gameSection.classList.add("hidden");
     authSection.classList.remove("hidden");
   }
+
+	function showPasswordChange() {
+		if (authGrid) authGrid.classList.add("hidden");
+		if (pwCard) pwCard.classList.remove("hidden");
+	}
+
+	function hidePasswordChange() {
+		if (authGrid) authGrid.classList.remove("hidden");
+		if (pwCard) pwCard.classList.add("hidden");
+	}
 
   function renderLogs(logs) {
     logList.innerHTML = "";
@@ -130,7 +159,7 @@
   function updateUI(state, sector, logs) {
     if (!state) return;
 
-    pilotName.textContent = state.username;
+    pilotName.textContent = state.username + (state.is_admin ? " (ADMIN)" : "");
     corpName.textContent = state.corp_name ? state.corp_name : "-";
     seasonName.textContent = state.season_name ? state.season_name : (state.season_id ? ("Season " + state.season_id) : "-");
 
@@ -194,9 +223,17 @@
 
   async function refreshState() {
     const data = await api("/api/state", { method: "GET" });
-    updateUI(data.state, data.sector, data.logs);
-    showGame();
-    setMsg(cmdMsg, "", false);
+		if (data && data.state && data.state.must_change_password) {
+			showAuth();
+			showPasswordChange();
+			setMsg(authMsg, "Password change required.", true);
+			return;
+		}
+
+		hidePasswordChange();
+		updateUI(data.state, data.sector, data.logs);
+		showGame();
+		setMsg(cmdMsg, "", false);
   }
 
   async function sendCommand(cmd) {
@@ -309,9 +346,17 @@
         body: JSON.stringify({ username, password })
       });
       setToken(data.token);
-      updateUI(data.state, data.sector, data.logs);
-      showGame();
-      setMsg(authMsg, "", false);
+			if (data && data.state && data.state.must_change_password) {
+				showAuth();
+				showPasswordChange();
+				document.getElementById("oldPass").value = password;
+				setMsg(authMsg, "Password change required.", true);
+				return;
+			}
+			hidePasswordChange();
+			updateUI(data.state, data.sector, data.logs);
+			showGame();
+			setMsg(authMsg, "", false);
     } catch (err) {
       setMsg(authMsg, err.message, true);
     }
@@ -329,13 +374,46 @@
         body: JSON.stringify({ username, password })
       });
       setToken(data.token);
-      updateUI(data.state, data.sector, data.logs);
-      showGame();
-      setMsg(authMsg, "", false);
+			if (data && data.state && data.state.must_change_password) {
+				showAuth();
+				showPasswordChange();
+				document.getElementById("oldPass").value = password;
+				setMsg(authMsg, "Password change required.", true);
+				return;
+			}
+			hidePasswordChange();
+			updateUI(data.state, data.sector, data.logs);
+			showGame();
+			setMsg(authMsg, "", false);
     } catch (err) {
       setMsg(authMsg, err.message, true);
     }
   });
+
+	// Change password (used for initial admin first-login flow)
+	document.getElementById("changePassForm").addEventListener("submit", async (e) => {
+		e.preventDefault();
+		setMsg(authMsg, "", false);
+		try {
+			const old_password = document.getElementById("oldPass").value;
+			const new_password = document.getElementById("newPass").value;
+			const new_password2 = document.getElementById("newPass2").value;
+			if (new_password !== new_password2) {
+				setMsg(authMsg, "New passwords do not match.", true);
+				return;
+			}
+			await api("/api/change_password", {
+				method: "POST",
+				body: JSON.stringify({ old_password, new_password })
+			});
+			document.getElementById("newPass").value = "";
+			document.getElementById("newPass2").value = "";
+			setMsg(authMsg, "Password updated.", false);
+			await refreshState();
+		} catch (err) {
+			setMsg(authMsg, err.message, true);
+		}
+	});
 
   // Buttons
   scanBtn.addEventListener("click", async () => {
@@ -361,6 +439,7 @@
   logoutBtn.addEventListener("click", () => {
     clearToken();
     showAuth();
+		hidePasswordChange();
     setMsg(authMsg, "Signed out.", false);
     setMsg(cmdMsg, "", false);
   });
@@ -380,9 +459,11 @@
 
   // Initial boot
   (async () => {
+		loadVersionBadge();
     const t = getToken();
     if (!t) {
       showAuth();
+			hidePasswordChange();
       return;
     }
     try {
@@ -390,6 +471,7 @@
     } catch (err) {
       clearToken();
       showAuth();
+			hidePasswordChange();
       setMsg(authMsg, "Session expired. Login again.", true);
     }
   })();

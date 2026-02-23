@@ -24,6 +24,10 @@ services:
       DATABASE_URL: postgres://sovereign:sovereign@db:5432/sovereign_conquest?sslmode=disable
       JWT_SECRET: dev-secret-change-me
       ADMIN_SECRET: "" # set to enable /api/admin/soft_wipe
+
+      # Seeded initial admin (requires password change on first login)
+      INITIAL_ADMIN_USERNAME: admin
+      INITIAL_ADMIN_PASSWORD: ChangeMeNow!
       UNIVERSE_SEED: "2002"
       UNIVERSE_SECTORS: "200"
       TURN_REGEN_SECONDS: "120"

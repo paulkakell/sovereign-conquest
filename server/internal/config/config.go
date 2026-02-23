@@ -7,13 +7,15 @@ import (
 
 const (
 	AppName = "Sovereign Conquest"
-	Version = "01.02.02"
+	Version = "01.03.00"
 )
 
 type Config struct {
 	DatabaseURL       string
 	JWTSecret         string
 	AdminSecret       string
+	InitialAdminUser  string
+	InitialAdminPass  string
 	UniverseSeed      int64
 	UniverseSectors   int
 	TurnRegenSeconds  int
@@ -28,6 +30,8 @@ func Load() Config {
 		DatabaseURL:       env("DATABASE_URL", "postgres://sovereign:sovereign@db:5432/sovereign_conquest?sslmode=disable"),
 		JWTSecret:         env("JWT_SECRET", "dev-secret-change-me"),
 		AdminSecret:       env("ADMIN_SECRET", ""),
+		InitialAdminUser:  env("INITIAL_ADMIN_USERNAME", "admin"),
+		InitialAdminPass:  env("INITIAL_ADMIN_PASSWORD", "ChangeMeNow!"),
 		UniverseSeed:      envInt64("UNIVERSE_SEED", 2002),
 		UniverseSectors:   envInt("UNIVERSE_SECTORS", 200),
 		TurnRegenSeconds:  envInt("TURN_REGEN_SECONDS", 120),

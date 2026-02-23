@@ -17,7 +17,10 @@ func LoadPlayerForUpdate(ctx context.Context, tx pgx.Tx, playerID string) (Playe
 	err := tx.QueryRow(ctx, `
 		SELECT
 			p.id,
+			u.id,
 			u.username,
+			u.is_admin,
+			u.must_change_password,
 			p.credits,
 			p.turns,
 			p.turns_max,
@@ -42,7 +45,10 @@ func LoadPlayerForUpdate(ctx context.Context, tx pgx.Tx, playerID string) (Playe
 		FOR UPDATE
 	`, playerID).Scan(
 		&p.ID,
+		&p.UserID,
 		&p.Username,
+		&p.IsAdmin,
+		&p.MustChangePass,
 		&p.Credits,
 		&p.Turns,
 		&p.TurnsMax,

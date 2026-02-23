@@ -4,7 +4,10 @@ import "time"
 
 type Player struct {
 	ID             string
+	UserID         string
 	Username       string
+	IsAdmin        bool
+	MustChangePass bool
 	Credits        int64
 	Turns          int
 	TurnsMax       int
@@ -26,7 +29,10 @@ type Player struct {
 
 type PlayerState struct {
 	ID             string `json:"id"`
+	UserID         string `json:"user_id"`
 	Username       string `json:"username"`
+	IsAdmin        bool   `json:"is_admin"`
+	MustChangePass bool   `json:"must_change_password"`
 	Credits        int64  `json:"credits"`
 	Turns          int    `json:"turns"`
 	TurnsMax       int    `json:"turns_max"`
@@ -48,7 +54,10 @@ type PlayerState struct {
 func (p Player) ToState() PlayerState {
 	return PlayerState{
 		ID:             p.ID,
+		UserID:         p.UserID,
 		Username:       p.Username,
+		IsAdmin:        p.IsAdmin,
+		MustChangePass: p.MustChangePass,
 		Credits:        p.Credits,
 		Turns:          p.Turns,
 		TurnsMax:       p.TurnsMax,

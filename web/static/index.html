@@ -10,13 +10,13 @@
   <div class="wrap">
     <header class="header">
       <div class="title">Sovereign Conquest</div>
-      <div class="subtitle">Phase 3</div>
+      <div id="versionBadge" class="subtitle">v--.--.--</div>
     </header>
 
     <section id="auth" class="panel">
       <h2>Access</h2>
 
-      <div class="grid2">
+      <div id="authGrid" class="grid2">
         <div class="card">
           <h3>Create account</h3>
           <form id="registerForm">
@@ -38,6 +38,20 @@
             <button type="submit">Login</button>
           </form>
         </div>
+      </div>
+
+      <div id="pwCard" class="card hidden">
+        <h3>Change password</h3>
+        <div class="muted">Required on first login for the seeded admin account.</div>
+        <form id="changePassForm">
+          <label>Current password</label>
+          <input id="oldPass" type="password" autocomplete="current-password" minlength="8" maxlength="100" required>
+          <label>New password</label>
+          <input id="newPass" type="password" autocomplete="new-password" minlength="8" maxlength="100" required>
+          <label>Confirm new password</label>
+          <input id="newPass2" type="password" autocomplete="new-password" minlength="8" maxlength="100" required>
+          <button type="submit">Update password</button>
+        </form>
       </div>
 
       <div id="authMsg" class="msg"></div>

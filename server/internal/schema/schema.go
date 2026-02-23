@@ -11,8 +11,19 @@ CREATE TABLE IF NOT EXISTS users (
 	id text PRIMARY KEY,
 	username text NOT NULL UNIQUE,
 	password_hash text NOT NULL,
+	is_admin boolean NOT NULL DEFAULT false,
+	must_change_password boolean NOT NULL DEFAULT false,
+	password_changed_at timestamptz,
 	created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Backfill/migrations for existing installs
+ALTER TABLE users
+	ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false;
+ALTER TABLE users
+	ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT false;
+ALTER TABLE users
+	ADD COLUMN IF NOT EXISTS password_changed_at timestamptz;
 
 CREATE TABLE IF NOT EXISTS sectors (
 	id integer PRIMARY KEY,

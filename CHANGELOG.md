@@ -1,5 +1,19 @@
 # Changelog
 
+## 01.03.00 (2026-02-23)
+
+Additive
+- Auth/bootstrap: seed an initial admin account (configurable username/password) on server startup.
+- Admin "god mode": admin players have zero turn costs and can MOVE to any existing sector (teleport).
+- Auth: add a password change endpoint and UI flow; the seeded admin account requires password change on first login.
+- UI: replace "Phase 3" header badge with a live version badge sourced from /api/healthz.
+
+Fix
+- Registration: choose a valid starting sector and ensure an active season exists, preventing "db error" on account creation in edge-case databases.
+
+Refs
+- SC-ADMIN-001 | Commit: N/A (no git metadata in provided artifact)
+
 ## 01.02.02 (2026-02-23)
 
 Fix

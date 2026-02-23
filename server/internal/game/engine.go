@@ -66,7 +66,13 @@ func ExecuteCommand(ctx context.Context, pool *pgxpool.Pool, playerID string, cm
 
 	RegenTurns(&p, regenSeconds, time.Now().UTC())
 
-	cost := commandCost(cmd)
+	// Force a password change before any gameplay actions when required.
+	// This is primarily used for the seeded initial admin account.
+	if p.MustChangePass {
+		return failWithState(ctx, pool, tx, p, "Password change required. Use the Change Password form.", "PASSWORD_CHANGE_REQUIRED")
+	}
+
+	cost := effectiveCommandCost(p, cmd)
 	if cost > 0 && p.Turns < cost {
 		// persist regen changes
 		_ = SavePlayer(ctx, tx, p)
@@ -103,13 +109,25 @@ func ExecuteCommand(ctx context.Context, pool *pgxpool.Pool, playerID string, cm
 		if cmd.To < 1 {
 			return failWithState(ctx, pool, tx, p, "Invalid destination sector.", "INVALID_MOVE")
 		}
-		var ok int
-		err := tx.QueryRow(ctx, "SELECT 1 FROM warps WHERE from_sector=$1 AND to_sector=$2", p.SectorID, cmd.To).Scan(&ok)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return failWithState(ctx, pool, tx, p, "No warp to that sector.", "INVALID_MOVE")
-		}
-		if err != nil {
-			return CommandResponse{OK: false, Error: "db error"}, err
+		if !p.IsAdmin {
+			var ok int
+			err := tx.QueryRow(ctx, "SELECT 1 FROM warps WHERE from_sector=$1 AND to_sector=$2", p.SectorID, cmd.To).Scan(&ok)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return failWithState(ctx, pool, tx, p, "No warp to that sector.", "INVALID_MOVE")
+			}
+			if err != nil {
+				return CommandResponse{OK: false, Error: "db error"}, err
+			}
+		} else {
+			// God mode: allow moving to any existing sector (teleport).
+			var ok int
+			err := tx.QueryRow(ctx, "SELECT 1 FROM sectors WHERE id=$1", cmd.To).Scan(&ok)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return failWithState(ctx, pool, tx, p, "Invalid destination sector.", "INVALID_MOVE")
+			}
+			if err != nil {
+				return CommandResponse{OK: false, Error: "db error"}, err
+			}
 		}
 		p.Turns -= cost
 		p.SectorID = cmd.To
@@ -312,6 +330,13 @@ func helpText() string {
 		"Phase2: RANKINGS | SEASON",
 		"Phase3: MARKET [ORE|ORGANICS|EQUIPMENT] | ROUTE [ORE|ORGANICS|EQUIPMENT] | EVENTS",
 	}, "\n")
+}
+
+func effectiveCommandCost(p Player, cmd CommandRequest) int {
+	if p.IsAdmin {
+		return 0
+	}
+	return commandCost(cmd)
 }
 
 func commandCost(cmd CommandRequest) int {

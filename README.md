@@ -15,6 +15,17 @@ Quick start
 3) Open:
    http://localhost:3000
 
+Initial admin account (seeded)
+- On startup, the server ensures an initial admin account exists.
+- Defaults:
+  - Username: admin
+  - Password: ChangeMeNow!
+- The seeded admin account requires a password change on first login.
+- Configure via environment variables:
+  - INITIAL_ADMIN_USERNAME
+  - INITIAL_ADMIN_PASSWORD
+- Admin "god mode": admin players have zero turn costs and can MOVE to any existing sector (teleport).
+
 Build note
 - The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy, set GOPROXY accordingly (or vendor dependencies).
 
