@@ -1,5 +1,16 @@
 # Changelog
 
+## 01.02.02 (2026-02-23)
+
+Fix
+- Docker build: remove invalid `-mod=mod` flag from `go mod download` step (this flag is only supported by build/test commands, not `go mod download`).
+
+Maintenance
+- Add a lightweight unit test to keep `server/internal/config.Version` in sync with the root VERSION file.
+
+Refs
+- SC-BUILD-002 | Commit: N/A (no git metadata in provided artifact)
+
 ## 01.02.01 (2026-02-23)
 
 Fix

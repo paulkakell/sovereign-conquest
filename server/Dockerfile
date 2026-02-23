@@ -5,7 +5,8 @@ WORKDIR /src
 RUN apk add --no-cache ca-certificates git
 
 COPY go.mod ./
-RUN go mod download -mod=mod
+# NOTE: `go mod download` does not accept `-mod=...` (that's a flag for build/test).
+RUN go mod download
 
 COPY . .
 RUN mkdir -p /out
