@@ -42,7 +42,9 @@ func LoadPlayerForUpdate(ctx context.Context, tx pgx.Tx, playerID string) (Playe
 		LEFT JOIN corp_members cm ON cm.player_id = p.id
 		LEFT JOIN corporations c ON c.id = cm.corp_id
 		WHERE p.id = $1
-		FOR UPDATE
+		-- Postgres forbids locking (FOR UPDATE) the nullable side of an OUTER JOIN.
+		-- We only need to lock the player's row for turn/cargo/credit mutations.
+		FOR UPDATE OF p
 	`, playerID).Scan(
 		&p.ID,
 		&p.UserID,

@@ -1,5 +1,15 @@
 # Changelog
 
+## 01.03.02 (2026-02-23)
+
+Fix
+- Auth/state: fix PostgreSQL error on login/register/state load by locking only the players row (`FOR UPDATE OF p`) when loading a player (the query includes LEFT JOINs).
+- UI: add cache-busting query params for app.js/style.css and use the build version as the badge fallback so the login page shows a version even if /api/healthz is temporarily unreachable.
+- API: prevent caching of /api/healthz (Cache-Control: no-store) so the UI always sees the current backend version.
+
+Refs
+- SC-DB-003, SC-UI-002 | Commit: N/A (no git metadata in provided artifact)
+
 ## 01.03.01 (2026-02-23)
 
 Fix

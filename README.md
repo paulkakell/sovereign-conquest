@@ -29,7 +29,7 @@ Initial admin account (seeded)
 - Admin "god mode": admin players have zero turn costs and can MOVE to any existing sector (teleport).
 
 UI note
-- The version badge is loaded from /api/healthz and may take a moment to populate during first boot while the API initializes.
+- The login header shows the build version immediately; once the API is reachable, the UI overwrites it with the live backend version from /api/healthz.
 
 Build note
 - The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy, set GOPROXY accordingly (or vendor dependencies).

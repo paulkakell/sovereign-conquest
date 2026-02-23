@@ -34,6 +34,8 @@ func (s *Server) Router() http.Handler {
 	r.Use(middleware.Timeout(15 * time.Second))
 
 	r.Get("/api/healthz", func(w http.ResponseWriter, r *http.Request) {
+		// Health/version checks should never be cached (used by the UI for live version badging).
+		w.Header().Set("Cache-Control", "no-store")
 		writeJSON(w, http.StatusOK, map[string]any{
 			"ok":      true,
 			"name":    config.AppName,

@@ -95,7 +95,9 @@
     return data;
   }
 
-	const versionFallback = "v--.--.--";
+	// The badge starts with the build/deploy version (from index.html). If the API becomes reachable,
+	// we overwrite it with the live backend version from /api/healthz.
+	const versionFallback = (versionBadge && versionBadge.textContent ? versionBadge.textContent.trim() : "v--.--.--");
 	let versionLoaded = false;
 
 	async function loadVersionBadge(attempt = 0) {
