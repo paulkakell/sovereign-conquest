@@ -41,6 +41,14 @@ func mineDeploy(ctx context.Context, tx pgx.Tx, p *Player, qty int) (phase2Resul
 	if qty > mineMaxDeployPerCmd {
 		return phase2Result{OK: false, Message: fmt.Sprintf("Deploy quantity too large (max %d per command).", mineMaxDeployPerCmd), ErrorCode: "INVALID_QTY"}, nil
 	}
+	isProt, err := IsProtectorateSector(ctx, tx, p.SectorID)
+	if err != nil {
+		return phase2Result{}, err
+	}
+	if isProt {
+		return phase2Result{OK: false, Message: "The Galactic Protectorate forbids mine deployment in Protectorate sectors.", ErrorCode: "PROTECTORATE_PEACE"}, nil
+	}
+
 	if p.CargoEquipment < qty {
 		return phase2Result{OK: false, Message: "Not enough equipment cargo to deploy mines.", ErrorCode: "INSUFFICIENT_EQUIPMENT"}, nil
 	}

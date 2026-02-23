@@ -28,8 +28,19 @@ ALTER TABLE users
 CREATE TABLE IF NOT EXISTS sectors (
 	id integer PRIMARY KEY,
 	name text NOT NULL,
+	is_protectorate boolean NOT NULL DEFAULT false,
+	protectorate_fighters integer NOT NULL DEFAULT 0,
 	created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Backfill/migrations for existing installs
+ALTER TABLE sectors
+	ADD COLUMN IF NOT EXISTS is_protectorate boolean NOT NULL DEFAULT false;
+ALTER TABLE sectors
+	ADD COLUMN IF NOT EXISTS protectorate_fighters integer NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_sectors_is_protectorate ON sectors(is_protectorate);
+
 
 CREATE TABLE IF NOT EXISTS warps (
 	from_sector integer NOT NULL REFERENCES sectors(id) ON DELETE CASCADE,
@@ -64,6 +75,11 @@ CREATE TABLE IF NOT EXISTS players (
 	id text PRIMARY KEY,
 	user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 	credits bigint NOT NULL DEFAULT 0,
+	xp bigint NOT NULL DEFAULT 0,
+	level integer NOT NULL DEFAULT 1,
+	ship_type text NOT NULL DEFAULT 'SCOUT',
+	ship_cargo_upgrades integer NOT NULL DEFAULT 0,
+	ship_turn_upgrades integer NOT NULL DEFAULT 0,
 	turns integer NOT NULL DEFAULT 0,
 	turns_max integer NOT NULL DEFAULT 100,
 	sector_id integer NOT NULL REFERENCES sectors(id),
@@ -74,6 +90,22 @@ CREATE TABLE IF NOT EXISTS players (
 	last_turn_regen timestamptz NOT NULL DEFAULT now(),
 	created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Backfill/migrations for existing installs
+ALTER TABLE players
+	ADD COLUMN IF NOT EXISTS xp bigint NOT NULL DEFAULT 0;
+ALTER TABLE players
+	ADD COLUMN IF NOT EXISTS level integer NOT NULL DEFAULT 1;
+ALTER TABLE players
+	ADD COLUMN IF NOT EXISTS ship_type text NOT NULL DEFAULT 'SCOUT';
+ALTER TABLE players
+	ADD COLUMN IF NOT EXISTS ship_cargo_upgrades integer NOT NULL DEFAULT 0;
+ALTER TABLE players
+	ADD COLUMN IF NOT EXISTS ship_turn_upgrades integer NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_players_season_xp ON players(season_id, xp DESC);
+CREATE INDEX IF NOT EXISTS idx_players_season_level ON players(season_id, level DESC);
+
 
 CREATE INDEX IF NOT EXISTS idx_players_user_id ON players(user_id);
 CREATE INDEX IF NOT EXISTS idx_players_sector_id ON players(sector_id);
@@ -240,9 +272,26 @@ CREATE TABLE IF NOT EXISTS direct_messages (
 	kind text NOT NULL DEFAULT 'USER',
 	subject text NOT NULL DEFAULT '',
 	body text NOT NULL,
+	read_at timestamptz,
+	deleted_by_from boolean NOT NULL DEFAULT false,
+	deleted_by_to boolean NOT NULL DEFAULT false,
 	related_message_id bigint REFERENCES direct_messages(id) ON DELETE SET NULL,
 	created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Backfill/migrations for existing installs
+ALTER TABLE direct_messages
+	ADD COLUMN IF NOT EXISTS read_at timestamptz;
+ALTER TABLE direct_messages
+	ADD COLUMN IF NOT EXISTS deleted_by_from boolean NOT NULL DEFAULT false;
+ALTER TABLE direct_messages
+	ADD COLUMN IF NOT EXISTS deleted_by_to boolean NOT NULL DEFAULT false;
+ALTER TABLE direct_messages
+	ADD COLUMN IF NOT EXISTS related_message_id bigint;
+
+CREATE INDEX IF NOT EXISTS idx_direct_messages_to_player_unread ON direct_messages(to_player_id, created_at DESC) WHERE read_at IS NULL AND deleted_by_to=false;
+CREATE INDEX IF NOT EXISTS idx_direct_messages_from_player_not_deleted ON direct_messages(from_player_id, created_at DESC) WHERE deleted_by_from=false;
+
 
 CREATE INDEX IF NOT EXISTS idx_direct_messages_to_player_created_at ON direct_messages(to_player_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_direct_messages_from_player_created_at ON direct_messages(from_player_id, created_at DESC);

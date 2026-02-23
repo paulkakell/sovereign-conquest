@@ -36,6 +36,10 @@ func main() {
 		log.Fatalf("universe init failed: %v", err)
 	}
 
+	if err := game.EnsureProtectorateSectors(ctx, pool, cfg.UniverseSeed); err != nil {
+		log.Fatalf("protectorate init failed: %v", err)
+	}
+
 	if res, err := game.EnsureInitialAdmin(ctx, pool, cfg.InitialAdminUser, cfg.InitialAdminPass); err != nil {
 		log.Printf("initial admin ensure failed: %v", err)
 	} else if res.Created {
@@ -47,6 +51,7 @@ func main() {
 	game.StartPortTicker(ctx, pool, cfg.PortTickSeconds)
 	game.StartPlanetTicker(ctx, pool, cfg.PlanetTickSeconds)
 	game.StartEventTicker(ctx, pool, cfg.EventTickSeconds)
+	game.StartProtectorateTicker(ctx, pool, cfg.ProtectorateTickSeconds)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

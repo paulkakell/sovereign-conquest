@@ -1,5 +1,24 @@
 # Changelog
 
+
+## 01.05.00 (2026-02-23)
+
+Additive
+- Progression: introduce XP, levels, and rank titles; all successful commands grant XP and rank-ups are announced in the activity log.
+- Galactic Protectorate: mark ~10% of sectors as Protectorate space with fluctuating fighter patrol counts, a major port (all resources), and shipyards (buy/sell/upgrade).
+- Admin: add an ANSI/ASCII universe map (sectors, ports, planets, ownership, player locations) accessible via an admin-only UI link.
+- Shipyard: add SHIPYARD command for purchasing ships and upgrading cargo/turns capacity (Protectorate sectors only).
+
+Fix
+- Messaging UI: move messaging to a dedicated Messages page; add topbar notification bell + unread count badge; add reply + per-user delete actions.
+- Messaging backend: add read tracking, unread count endpoint, and per-user soft delete for inbox/sent views and attachment access.
+
+Maintenance
+- Schema: add player progression and ship fields to players; add Protectorate fields to sectors; add message metadata (read/deleted flags) to direct_messages.
+
+Refs
+- SC-MSG-003, SC-UI-004, SC-RANK-001, SC-PROT-001, SC-SHIP-001, SC-ADMIN-003 | Commit: N/A (no git metadata in provided artifact)
+
 ## 01.04.00 (2026-02-23)
 
 Additive

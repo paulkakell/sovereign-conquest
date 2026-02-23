@@ -8,7 +8,15 @@ type Player struct {
 	Username       string
 	IsAdmin        bool
 	MustChangePass bool
-	Credits        int64
+
+	Credits int64
+	XP      int64
+	Level   int
+
+	ShipType          string
+	ShipCargoUpgrades int
+	ShipTurnUpgrades  int
+
 	Turns          int
 	TurnsMax       int
 	SectorID       int
@@ -28,19 +36,26 @@ type Player struct {
 }
 
 type PlayerState struct {
-	ID             string `json:"id"`
-	UserID         string `json:"user_id"`
-	Username       string `json:"username"`
-	IsAdmin        bool   `json:"is_admin"`
-	MustChangePass bool   `json:"must_change_password"`
-	Credits        int64  `json:"credits"`
-	Turns          int    `json:"turns"`
-	TurnsMax       int    `json:"turns_max"`
-	SectorID       int    `json:"sector_id"`
-	CargoMax       int    `json:"cargo_max"`
-	CargoOre       int    `json:"cargo_ore"`
-	CargoOrganics  int    `json:"cargo_organics"`
-	CargoEquipment int    `json:"cargo_equipment"`
+	ID                string `json:"id"`
+	UserID            string `json:"user_id"`
+	Username          string `json:"username"`
+	IsAdmin           bool   `json:"is_admin"`
+	MustChangePass    bool   `json:"must_change_password"`
+	Credits           int64  `json:"credits"`
+	XP                int64  `json:"xp"`
+	Level             int    `json:"level"`
+	Rank              string `json:"rank"`
+	NextLevelXP       int64  `json:"next_level_xp"`
+	ShipType          string `json:"ship_type"`
+	ShipCargoUpgrades int    `json:"ship_cargo_upgrades"`
+	ShipTurnUpgrades  int    `json:"ship_turn_upgrades"`
+	Turns             int    `json:"turns"`
+	TurnsMax          int    `json:"turns_max"`
+	SectorID          int    `json:"sector_id"`
+	CargoMax          int    `json:"cargo_max"`
+	CargoOre          int    `json:"cargo_ore"`
+	CargoOrganics     int    `json:"cargo_organics"`
+	CargoEquipment    int    `json:"cargo_equipment"`
 
 	SeasonID   int    `json:"season_id"`
 	SeasonName string `json:"season_name"`
@@ -52,26 +67,44 @@ type PlayerState struct {
 }
 
 func (p Player) ToState() PlayerState {
+	lvl := p.Level
+	// Keep level consistent with XP, even if a legacy row had a stale level value.
+	computed := LevelForXP(p.XP)
+	if computed > 0 {
+		lvl = computed
+	}
+	nextXP := XPForLevel(lvl + 1)
+	if lvl >= MaxPlayerLevel {
+		nextXP = XPForLevel(MaxPlayerLevel)
+	}
+
 	return PlayerState{
-		ID:             p.ID,
-		UserID:         p.UserID,
-		Username:       p.Username,
-		IsAdmin:        p.IsAdmin,
-		MustChangePass: p.MustChangePass,
-		Credits:        p.Credits,
-		Turns:          p.Turns,
-		TurnsMax:       p.TurnsMax,
-		SectorID:       p.SectorID,
-		CargoMax:       p.CargoMax,
-		CargoOre:       p.CargoOre,
-		CargoOrganics:  p.CargoOrganics,
-		CargoEquipment: p.CargoEquipment,
-		SeasonID:       p.SeasonID,
-		SeasonName:     p.SeasonName,
-		CorpID:         p.CorpID,
-		CorpName:       p.CorpName,
-		CorpRole:       p.CorpRole,
-		CorpCredits:    p.CorpCredits,
+		ID:                p.ID,
+		UserID:            p.UserID,
+		Username:          p.Username,
+		IsAdmin:           p.IsAdmin,
+		MustChangePass:    p.MustChangePass,
+		Credits:           p.Credits,
+		XP:                p.XP,
+		Level:             lvl,
+		Rank:              RankNameForLevel(lvl),
+		NextLevelXP:       nextXP,
+		ShipType:          p.ShipType,
+		ShipCargoUpgrades: p.ShipCargoUpgrades,
+		ShipTurnUpgrades:  p.ShipTurnUpgrades,
+		Turns:             p.Turns,
+		TurnsMax:          p.TurnsMax,
+		SectorID:          p.SectorID,
+		CargoMax:          p.CargoMax,
+		CargoOre:          p.CargoOre,
+		CargoOrganics:     p.CargoOrganics,
+		CargoEquipment:    p.CargoEquipment,
+		SeasonID:          p.SeasonID,
+		SeasonName:        p.SeasonName,
+		CorpID:            p.CorpID,
+		CorpName:          p.CorpName,
+		CorpRole:          p.CorpRole,
+		CorpCredits:       p.CorpCredits,
 	}
 }
 
@@ -117,13 +150,16 @@ type EventView struct {
 }
 
 type SectorView struct {
-	ID     int         `json:"id"`
-	Name   string      `json:"name"`
-	Warps  []int       `json:"warps"`
-	Port   *PortView   `json:"port,omitempty"`
-	Planet *PlanetView `json:"planet,omitempty"`
-	Event  *EventView  `json:"event,omitempty"`
-	Mines  int         `json:"mines"`
+	ID                   int         `json:"id"`
+	Name                 string      `json:"name"`
+	IsProtectorate       bool        `json:"is_protectorate"`
+	ProtectorateFighters int         `json:"protectorate_fighters"`
+	HasShipyard          bool        `json:"has_shipyard"`
+	Warps                []int       `json:"warps"`
+	Port                 *PortView   `json:"port,omitempty"`
+	Planet               *PlanetView `json:"planet,omitempty"`
+	Event                *EventView  `json:"event,omitempty"`
+	Mines                int         `json:"mines"`
 }
 
 type CommandRequest struct {

@@ -31,7 +31,7 @@ Initial admin account (seeded)
 UI note
 - The login header shows the build version immediately; once the API is reachable, the UI overwrites it with the live backend version from /api/healthz.
 - The header includes a "Report A Bug" link which opens a separate bug report window. Bug reports (with optional attachments) are delivered to the Admin account via in-game direct messaging.
-- The in-game "Messages" card provides direct user-to-user messaging (recipient must be specified by username). Each message includes a "Report spam/abuse" action which forwards the message to the Admin account.
+- The top bar includes a Messages bell which opens the Messages page (inbox/sent, reply, delete). Unread messages are shown as a badge count.
 
 Build note
 - The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy, set GOPROXY accordingly (or vendor dependencies).
@@ -64,6 +64,11 @@ Phase 2 commands
 - MINE
   - MINE DEPLOY {qty}      (consumes ship equipment cargo)
   - MINE SWEEP             (removes hostile mines in the sector)
+- SHIPYARD (Protectorate sectors only)
+  - SHIPYARD
+  - SHIPYARD BUY {SCOUT|TRADER|FREIGHTER|INTERCEPTOR}
+  - SHIPYARD SELL
+  - SHIPYARD UPGRADE {CARGO|TURNS}
 - RANKINGS
 - SEASON
 
@@ -93,3 +98,4 @@ Notes
 - Turns regenerate on demand (each command call recalculates turns since last regen).
 - Ports and planets regenerate on server ticks to keep the economy and production moving even when nobody is online.
 - Events are generated/expired on an event tick (EVENT_TICK_SECONDS). Set EVENT_TICK_SECONDS=0 to disable event generation.
+- Protectorate fighter counts fluctuate on a tick (PROTECTORATE_TICK_SECONDS). Set PROTECTORATE_TICK_SECONDS=0 to disable fluctuations.

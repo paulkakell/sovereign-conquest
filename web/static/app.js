@@ -1,683 +1,782 @@
 (() => {
-  const tokenKey = "sovereign_token";
+  const $ = (id) => document.getElementById(id);
+  const show = (el, on = true) => {
+    if (!el) return;
+    el.style.display = on ? "" : "none";
+  };
 
-  const authSection = document.getElementById("auth");
-  const gameSection = document.getElementById("game");
+  let token = localStorage.getItem("token") || "";
+  let currentPlayer = null;
+  let currentSector = null;
+  let unreadTimer = null;
+  let activePage = "game"; // game | messages | adminMap
+  let activeMsgTab = "inbox"; // inbox | sent
 
-	const versionBadge = document.getElementById("versionBadge");
-	const authGrid = document.getElementById("authGrid");
-	const pwCard = document.getElementById("pwCard");
+  // Auth UI
+  const auth = $("auth");
+  const tabLogin = $("tabLogin");
+  const tabRegister = $("tabRegister");
+  const loginPanel = $("loginPanel");
+  const registerPanel = $("registerPanel");
+  const pwChangePanel = $("pwChangePanel");
+  const authMsg = $("authMsg");
 
-  const authMsg = document.getElementById("authMsg");
-  const cmdMsg = document.getElementById("cmdMsg");
+  // Game UI
+  const game = $("game");
+  const topbar = $("topbar");
+  const pilotName = $("pilotName");
+  const rankName = $("rankName");
+  const xpValue = $("xpValue");
+  const corpName = $("corpName");
+  const seasonName = $("seasonName");
+  const sectorName = $("sectorName");
+  const credits = $("credits");
+  const turns = $("turns");
+  const cargo = $("cargo");
+  const cargoCap = $("cargoCap");
 
-  const pilotName = document.getElementById("pilotName");
-  const corpName = document.getElementById("corpName");
-  const seasonName = document.getElementById("seasonName");
+  const messagesNavBtn = $("messagesNavBtn");
+  const msgBadge = $("msgBadge");
+  const adminMapBtn = $("adminMapBtn");
+  const refreshBtn = $("refreshBtn");
+  const logoutBtn = $("logoutBtn");
 
-  const sectorId = document.getElementById("sectorId");
-  const sectorName = document.getElementById("sectorName");
-  const warps = document.getElementById("warps");
-  const credits = document.getElementById("credits");
-  const turns = document.getElementById("turns");
-  const cargo = document.getElementById("cargo");
-  const cargoCap = document.getElementById("cargoCap");
+  const discCount = $("discCount");
+  const playerCount = $("playerCount");
+  const corpInfo = $("corpInfo");
+  const planetInfo = $("planetInfo");
 
-  const eventBox = document.getElementById("eventBox");
-  const eventTitle = document.getElementById("eventTitle");
-  const eventEffect = document.getElementById("eventEffect");
-  const eventEnds = document.getElementById("eventEnds");
-  const eventDesc = document.getElementById("eventDesc");
+  const sectorDetails = $("sectorDetails");
+  const portDetails = $("portDetails");
+  const eventDetails = $("eventDetails");
+  const logBox = $("log");
 
-  const noPort = document.getElementById("noPort");
-  const portPanel = document.getElementById("portPanel");
+  const commandInput = $("commandInput");
+  const sendCmdBtn = $("sendCmdBtn");
+  const cmdMsg = $("cmdMsg");
+  const helpText = $("helpText");
 
-  const pOreMode = document.getElementById("pOreMode");
-  const pOreQty = document.getElementById("pOreQty");
-  const pOrePrice = document.getElementById("pOrePrice");
-  const pOrgMode = document.getElementById("pOrgMode");
-  const pOrgQty = document.getElementById("pOrgQty");
-  const pOrgPrice = document.getElementById("pOrgPrice");
-  const pEqMode = document.getElementById("pEqMode");
-  const pEqQty = document.getElementById("pEqQty");
-  const pEqPrice = document.getElementById("pEqPrice");
+  // Pages
+  const pageGame = $("pageGame");
+  const pageMessages = $("pageMessages");
+  const pageAdminMap = $("pageAdminMap");
 
-  const logList = document.getElementById("logList");
+  // Messaging page
+  const inboxTabBtn = $("inboxTabBtn");
+  const sentTabBtn = $("sentTabBtn");
+  const inboxPanel = $("inboxPanel");
+  const sentPanel = $("sentPanel");
+  const refreshInboxBtn = $("refreshInboxBtn");
+  const refreshSentBtn = $("refreshSentBtn");
+  const dmInbox = $("dmInbox");
+  const dmSent = $("dmSent");
 
-  const scanBtn = document.getElementById("scanBtn");
-  const moveBtn = document.getElementById("moveBtn");
-  const moveTo = document.getElementById("moveTo");
-  const tradeBtn = document.getElementById("tradeBtn");
-  const tradeAction = document.getElementById("tradeAction");
-  const tradeCommodity = document.getElementById("tradeCommodity");
-  const tradeQty = document.getElementById("tradeQty");
+  const sendMsgForm = $("sendMsgForm");
+  const msgTo = $("msgTo");
+  const msgSubject = $("msgSubject");
+  const msgBody = $("msgBody");
+  const msgAttachment = $("msgAttachment");
+  const relatedMessageId = $("relatedMessageId");
+  const replyContext = $("replyContext");
+  const replyActions = $("replyActions");
+  const cancelReplyBtn = $("cancelReplyBtn");
+  const msgSendStatus = $("msgSendStatus");
 
-  const refreshBtn = document.getElementById("refreshBtn");
-  const logoutBtn = document.getElementById("logoutBtn");
+  // Admin map page
+  const refreshAdminMapBtn = $("refreshAdminMapBtn");
+  const adminMapPre = $("adminMapPre");
+  const adminMapMsg = $("adminMapMsg");
 
-  const marketBtn = document.getElementById("marketBtn");
-  const routeBtn = document.getElementById("routeBtn");
-  const eventsBtn = document.getElementById("eventsBtn");
+  const ver = $("ver");
 
-  const cmdForm = document.getElementById("cmdForm");
-  const cmdInput = document.getElementById("cmdInput");
-
-  const dmForm = document.getElementById("dmForm");
-  const dmTo = document.getElementById("dmTo");
-  const dmSubject = document.getElementById("dmSubject");
-  const dmBody = document.getElementById("dmBody");
-  const dmMsg = document.getElementById("dmMsg");
-  const dmInbox = document.getElementById("dmInbox");
-  const dmRefreshBtn = document.getElementById("dmRefreshBtn");
-
-  function getToken() {
-    return localStorage.getItem(tokenKey) || "";
-  }
-
-  function setToken(t) {
-    if (t) localStorage.setItem(tokenKey, t);
-  }
-
-  function clearToken() {
-    localStorage.removeItem(tokenKey);
-  }
-
-  function setMsg(el, text, bad) {
-    el.textContent = text || "";
-    el.classList.toggle("bad", !!bad);
-  }
-
-  async function api(path, options) {
-    const opts = options || {};
-    opts.headers = opts.headers || {};
-    opts.headers["Content-Type"] = "application/json";
-    const t = getToken();
-    if (t) opts.headers["Authorization"] = "Bearer " + t;
-
-    const res = await fetch(path, opts);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const msg = data && (data.message || data.error) ? (data.message || data.error) : "Request failed";
-      throw new Error(msg);
+  function setAuthTab(which) {
+    if (which === "login") {
+      tabLogin.classList.add("active");
+      tabRegister.classList.remove("active");
+      show(loginPanel, true);
+      show(registerPanel, false);
+    } else {
+      tabRegister.classList.add("active");
+      tabLogin.classList.remove("active");
+      show(registerPanel, true);
+      show(loginPanel, false);
     }
-    return data;
-  }
-
-	// The badge starts with the build/deploy version (from index.html). If the API becomes reachable,
-	// we overwrite it with the live backend version from /api/healthz.
-	const versionFallback = (versionBadge && versionBadge.textContent ? versionBadge.textContent.trim() : "v--.--.--");
-	let versionLoaded = false;
-
-	async function loadVersionBadge(attempt = 0) {
-		if (!versionBadge || versionLoaded) return;
-		try {
-			// The API may not be ready yet when the UI first loads (db init/universe seed).
-			// Retry a few times with backoff so the badge self-heals without a full page refresh.
-			const res = await fetch("/api/healthz", { cache: "no-store" });
-			const data = await res.json().catch(() => ({}));
-			if (res.ok && data && data.version) {
-				versionBadge.textContent = "v" + data.version;
-				versionLoaded = true;
-				return;
-			}
-		} catch (e) {
-			// ignored (retry below)
-		}
-
-		versionBadge.textContent = versionFallback;
-		if (attempt < 8 && !versionLoaded) {
-			const delay = Math.min(5000, 250 * Math.pow(2, attempt));
-			setTimeout(() => loadVersionBadge(attempt + 1), delay);
-		}
-	}
-
-  function showGame() {
-    authSection.classList.add("hidden");
-    gameSection.classList.remove("hidden");
-  }
-
-  function showAuth() {
-    gameSection.classList.add("hidden");
-    authSection.classList.remove("hidden");
-  }
-
-	function showPasswordChange() {
-		if (authGrid) authGrid.classList.add("hidden");
-		if (pwCard) pwCard.classList.remove("hidden");
-	}
-
-	function hidePasswordChange() {
-		if (authGrid) authGrid.classList.remove("hidden");
-		if (pwCard) pwCard.classList.add("hidden");
-	}
-
-  function renderLogs(logs) {
-    logList.innerHTML = "";
-    if (!logs || !logs.length) {
-      logList.innerHTML = "<div class='muted'>No activity yet.</div>";
-      return;
-    }
-    for (const e of logs) {
-      const div = document.createElement("div");
-      div.className = "log";
-      const at = new Date(e.at).toLocaleString();
-      div.innerHTML = "<div class='meta'>" + at + " | " + escapeHtml(e.kind) + "</div>" +
-                      "<div class='text'>" + escapeHtml(e.message) + "</div>";
-      logList.appendChild(div);
-    }
+    show(pwChangePanel, false);
+    authMsg.textContent = "";
   }
 
   function escapeHtml(s) {
-    return (s || "").replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    }[c]));
+    return (s || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
   }
 
-  function updateUI(state, sector, logs) {
-    if (!state) return;
+  function fmtTime(ts) {
+    if (!ts) return "";
+    try {
+      return new Date(ts).toLocaleString();
+    } catch {
+      return String(ts);
+    }
+  }
 
-    pilotName.textContent = state.username + (state.is_admin ? " (ADMIN)" : "");
-    corpName.textContent = state.corp_name ? state.corp_name : "-";
-    seasonName.textContent = state.season_name ? state.season_name : (state.season_id ? ("Season " + state.season_id) : "-");
+  async function apiFetch(path, opts = {}) {
+    const headers = opts.headers ? { ...opts.headers } : {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    sectorId.textContent = String(state.sector_id);
-    credits.textContent = String(state.credits);
-    turns.textContent = String(state.turns) + " / " + String(state.turns_max);
-
-    const totalCargo = (state.cargo_ore || 0) + (state.cargo_organics || 0) + (state.cargo_equipment || 0);
-    cargo.textContent = "Ore " + state.cargo_ore + ", Org " + state.cargo_organics + ", Eq " + state.cargo_equipment;
-    cargoCap.textContent = String(totalCargo) + " / " + String(state.cargo_max);
-
-    if (sector) {
-      sectorName.textContent = sector.name || "";
-      warps.textContent = (sector.warps || []).join(", ") || "None";
-
-      if (sector.event) {
-        eventBox.classList.remove("hidden");
-        eventTitle.textContent = sector.event.title + " [" + sector.event.kind + "]";
-
-        if (sector.event.kind === "ANOMALY" || sector.event.kind === "LIMITED") {
-          eventEffect.textContent = "Prices " + sector.event.price_percent + "% (" + sector.event.commodity + ")";
-        } else if (sector.event.kind === "INVASION") {
-          eventEffect.textContent = "Severity " + sector.event.severity;
-        } else {
-          eventEffect.textContent = "";
-        }
-
-        eventEnds.textContent = new Date(sector.event.ends_at).toLocaleString();
-        eventDesc.textContent = sector.event.description || "";
-      } else {
-        eventBox.classList.add("hidden");
-        eventTitle.textContent = "";
-        eventEffect.textContent = "";
-        eventEnds.textContent = "";
-        eventDesc.textContent = "";
-      }
-
-      if (sector.port) {
-        noPort.classList.add("hidden");
-        portPanel.classList.remove("hidden");
-
-        pOreMode.textContent = sector.port.ore_mode;
-        pOreQty.textContent = String(sector.port.ore_qty) + " / " + String(sector.port.ore_base_qty);
-        pOrePrice.textContent = String(sector.port.ore_price);
-
-        pOrgMode.textContent = sector.port.organics_mode;
-        pOrgQty.textContent = String(sector.port.organics_qty) + " / " + String(sector.port.organics_base_qty);
-        pOrgPrice.textContent = String(sector.port.organics_price);
-
-        pEqMode.textContent = sector.port.equipment_mode;
-        pEqQty.textContent = String(sector.port.equipment_qty) + " / " + String(sector.port.equipment_base_qty);
-        pEqPrice.textContent = String(sector.port.equipment_price);
-      } else {
-        portPanel.classList.add("hidden");
-        noPort.classList.remove("hidden");
-      }
+    let body = opts.body;
+    if (opts.json !== undefined) {
+      headers["Content-Type"] = "application/json";
+      body = JSON.stringify(opts.json);
     }
 
-    renderLogs(logs || []);
+    const res = await fetch(path, {
+      method: opts.method || "GET",
+      headers,
+      body,
+    });
+
+    const ct = res.headers.get("content-type") || "";
+    const isJSON = ct.includes("application/json");
+    const data = isJSON ? await res.json() : await res.text();
+
+    if (!res.ok) {
+      const msg = isJSON ? (data?.error || JSON.stringify(data)) : data;
+      const err = new Error(msg || `HTTP ${res.status}`);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+
+    return data;
+  }
+
+  async function loadVersion() {
+    try {
+      const data = await apiFetch("/api/version");
+      if (data?.version) ver.textContent = data.version;
+    } catch {
+      // ignore
+    }
+  }
+
+  function showGameUI() {
+    show(auth, false);
+    show(game, true);
+    show(topbar, true);
+  }
+
+  function showAuthUI() {
+    show(game, false);
+    show(topbar, false);
+    show(auth, true);
+  }
+
+  function setPage(page) {
+    activePage = page;
+    show(pageGame, page === "game");
+    show(pageMessages, page === "messages");
+    show(pageAdminMap, page === "adminMap");
+  }
+
+  function updateBadge(unread) {
+    const n = Number(unread || 0);
+    if (n > 0) {
+      msgBadge.textContent = String(n);
+      show(msgBadge, true);
+    } else {
+      show(msgBadge, false);
+    }
+  }
+
+  async function refreshUnreadCount() {
+    if (!token) return;
+    try {
+      const data = await apiFetch("/api/messages/unread_count");
+      updateBadge(data?.unread || 0);
+    } catch {
+      // ignore
+    }
+  }
+
+  function startUnreadPolling() {
+    stopUnreadPolling();
+    refreshUnreadCount();
+    unreadTimer = setInterval(refreshUnreadCount, 20000);
+  }
+
+  function stopUnreadPolling() {
+    if (unreadTimer) {
+      clearInterval(unreadTimer);
+      unreadTimer = null;
+    }
+  }
+
+  function renderPlayer(p) {
+    currentPlayer = p;
+    pilotName.textContent = p.username;
+
+    // Rank display
+    const lvl = p.level || 1;
+    const rank = p.rank || "";
+    rankName.textContent = `L${lvl}${rank ? " • " + rank : ""}`;
+
+    const xp = p.xp || 0;
+    const next = p.next_level_xp || 0;
+    if (next > 0 && next > xp) {
+      xpValue.textContent = `${xp}/${next}`;
+    } else {
+      xpValue.textContent = String(xp);
+    }
+
+    corpName.textContent = p.corp_name || "-";
+    seasonName.textContent = p.season_name || "-";
+    credits.textContent = String(p.credits ?? 0);
+    turns.textContent = `${p.turns ?? 0}/${p.turns_max ?? 0}`;
+    cargo.textContent = `${(p.cargo_ore ?? 0) + (p.cargo_organics ?? 0) + (p.cargo_equipment ?? 0)}`;
+    cargoCap.textContent = String(p.cargo_max ?? 0);
+
+    // Optional status placeholders
+    discCount.textContent = "-";
+    playerCount.textContent = "-";
+    corpInfo.textContent = p.corp_name ? `${p.corp_name} (${p.corp_role || ""})` : "-";
+
+    // Admin-only UI
+    if (p.is_admin) {
+      show(adminMapBtn, true);
+    } else {
+      show(adminMapBtn, false);
+    }
+  }
+
+  function renderSector(s) {
+    currentSector = s;
+    sectorName.textContent = s?.name ? `${s.name} (#${s.id})` : `#${s?.id ?? "?"}`;
+
+    const lines = [];
+    lines.push(`Sector: ${s.id} ${s.name}`);
+    if (s.is_protectorate) {
+      lines.push(`Protectorate space: ${s.protectorate_fighters ?? 0} fighters on patrol.`);
+      lines.push(`Shipyard: ${s.has_shipyard ? "available" : "-"}`);
+    }
+    lines.push(`Warps: ${(s.warps || []).join(", ") || "(none)"}`);
+    lines.push(`Mines: ${s.mines ?? 0}`);
+
+    if (s.planet) {
+      const owner = s.planet.owner || "(unowned)";
+      lines.push(`Planet: ${s.planet.name} | Owner: ${owner} | Citadel: ${s.planet.citadel_level}`);
+      planetInfo.textContent = `${s.planet.name} (${owner})`;
+    } else {
+      lines.push("Planet: (none)");
+      planetInfo.textContent = "-";
+    }
+
+    sectorDetails.textContent = lines.join("\n");
+
+    // Port
+    renderPort(s.port);
+
+    // Event
+    renderEvent(s.event);
+  }
+
+  function renderPort(p) {
+    if (!p) {
+      portDetails.textContent = "No port in this sector.";
+      return;
+    }
+
+    const lines = [];
+    lines.push(`Port: ${p.name || "(spaceport)"}`);
+    lines.push(`Ore: ${p.ore_mode} Qty=${p.ore_qty} Price=${p.ore_price}`);
+    lines.push(`Organics: ${p.organics_mode} Qty=${p.organics_qty} Price=${p.organics_price}`);
+    lines.push(`Equipment: ${p.equipment_mode} Qty=${p.equipment_qty} Price=${p.equipment_price}`);
+    portDetails.textContent = lines.join("\n");
+  }
+
+  function renderEvent(e) {
+    if (!e) {
+      eventDetails.textContent = "No active event.";
+      return;
+    }
+    const lines = [];
+    lines.push(`Event: ${e.name}`);
+    lines.push(`Effect: ${e.effect}`);
+    lines.push(`Ends: ${fmtTime(e.ends_at)}`);
+    eventDetails.textContent = lines.join("\n");
+  }
+
+  function appendLogs(logs) {
+    if (!Array.isArray(logs)) return;
+    for (const l of logs) {
+      const div = document.createElement("div");
+      div.className = `logline kind-${(l.kind || "").toLowerCase()}`;
+      div.textContent = `[${l.kind}] ${l.msg}`;
+      logBox.prepend(div);
+    }
   }
 
   async function refreshState() {
-    const data = await api("/api/state", { method: "GET" });
-		if (data && data.state && data.state.must_change_password) {
-			showAuth();
-			showPasswordChange();
-			setMsg(authMsg, "Password change required.", true);
-			return;
-		}
-
-		hidePasswordChange();
-		updateUI(data.state, data.sector, data.logs);
-		showGame();
-		await refreshInbox();
-		setMsg(cmdMsg, "", false);
+    const data = await apiFetch("/api/state");
+    if (data?.state) renderPlayer(data.state);
+    if (data?.sector) renderSector(data.sector);
+    if (Array.isArray(data?.logs)) {
+      logBox.innerHTML = "";
+      appendLogs(data.logs);
+    }
   }
 
-  async function sendCommand(cmd) {
-    const t = getToken();
-    const headers = { "Content-Type": "application/json" };
-    if (t) headers["Authorization"] = "Bearer " + t;
+  async function refreshHelp() {
+    try {
+      const data = await apiFetch("/api/help");
+      if (data?.help) {
+        helpText.textContent = data.help.join("\n");
+      }
+    } catch {
+      // ignore
+    }
+  }
 
-    const res = await fetch("/api/command", {
-      method: "POST",
-      headers,
-      body: JSON.stringify(cmd)
-    });
+  function parseCommandLine(line) {
+    const raw = (line || "").trim();
+    if (!raw) return null;
 
-    const data = await res.json().catch(() => ({}));
+    const parts = raw.split(/\s+/);
+    const type = (parts[0] || "").toUpperCase();
 
-    // The command endpoint can return state/logs even on validation failures (HTTP 400).
-    if (data && data.state && data.sector && data.logs) {
-      updateUI(data.state, data.sector, data.logs);
+    if (type === "SCAN") return { type: "SCAN" };
+
+    if (type === "MOVE") {
+      const to = Number(parts[1]);
+      if (!Number.isFinite(to)) return null;
+      return { type: "MOVE", to };
     }
 
-    if (!res.ok) {
-      setMsg(cmdMsg, (data && (data.message || data.error)) ? (data.message || data.error) : "Request failed", true);
-      await refreshInbox();
+    if (type === "TRADE") {
+      const action = (parts[1] || "").toUpperCase();
+      const commodity = (parts[2] || "").toUpperCase();
+      const qty = Number(parts[3]);
+      if (!action || !commodity || !Number.isFinite(qty)) return null;
+      return { type: "TRADE", action, commodity, quantity: qty };
+    }
+
+    if (type === "PLANET") {
+      const action = (parts[1] || "INFO").toUpperCase();
+      const name = parts.slice(2).join(" ");
+      return { type: "PLANET", action, name };
+    }
+
+    if (type === "CORP") {
+      const action = (parts[1] || "INFO").toUpperCase();
+      const name = parts.slice(2).join(" ");
+      return { type: "CORP", action, name, text: parts.slice(2).join(" ") };
+    }
+
+    if (type === "MINE") {
+      const action = (parts[1] || "INFO").toUpperCase();
+      const qty = parts[2] ? Number(parts[2]) : 0;
+      return { type: "MINE", action, quantity: Number.isFinite(qty) ? qty : 0 };
+    }
+
+    if (type === "SHIPYARD") {
+      const action = (parts[1] || "").toUpperCase();
+      const name = (parts[2] || "").toUpperCase();
+      return { type: "SHIPYARD", action, name };
+    }
+
+    if (type === "HELP") return { type: "HELP" };
+    if (type === "RANKINGS") return { type: "RANKINGS" };
+    if (type === "SEASON") return { type: "SEASON" };
+    if (type === "MARKET") return { type: "MARKET" };
+    if (type === "ROUTE") return { type: "ROUTE" };
+    if (type === "EVENTS") return { type: "EVENTS" };
+
+    return null;
+  }
+
+  async function sendCommand() {
+    cmdMsg.textContent = "";
+    const cmd = parseCommandLine(commandInput.value);
+    if (!cmd) {
+      cmdMsg.textContent = "Invalid command.";
       return;
     }
 
-    setMsg(cmdMsg, data.message || "", !data.ok);
-    await refreshInbox();
+    try {
+      const resp = await apiFetch("/api/command", { method: "POST", json: cmd });
+      if (resp?.message) {
+        cmdMsg.textContent = resp.message;
+      }
+      if (resp?.state) renderPlayer(resp.state);
+      if (resp?.sector) renderSector(resp.sector);
+      if (Array.isArray(resp?.logs)) {
+        appendLogs(resp.logs);
+      }
+      refreshUnreadCount();
+    } catch (e) {
+      cmdMsg.textContent = e.message || "Command failed";
+      if (e.status === 401) {
+        logout();
+      }
+    }
   }
 
-  function renderInbox(messages) {
-    if (!dmInbox) return;
-    dmInbox.innerHTML = "";
-
-    if (!messages || messages.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "muted";
-      empty.textContent = "No messages.";
-      dmInbox.appendChild(empty);
-      return;
-    }
-
-    for (const m of messages) {
-      const wrap = document.createElement("div");
-      wrap.className = "message";
-
-      const meta = document.createElement("div");
-      meta.className = "meta";
-      const at = m.created_at ? new Date(m.created_at).toLocaleString() : "";
-      const kind = m.kind && m.kind !== "USER" ? ` [${m.kind}]` : "";
-      meta.textContent = `${at} | From ${m.from}${kind}`;
-      wrap.appendChild(meta);
-
-      if (m.subject) {
-        const subj = document.createElement("div");
-        subj.className = "subject";
-        subj.textContent = m.subject;
-        wrap.appendChild(subj);
-      }
-
-      const body = document.createElement("div");
-      body.className = "body";
-      body.textContent = m.body || "";
-      wrap.appendChild(body);
-
-      const actions = document.createElement("div");
-      actions.className = "msgActions";
-
-		if (m.kind === "USER") {
-			const report = document.createElement("a");
-			report.href = "#";
-			report.textContent = "Report spam/abuse";
-			report.addEventListener("click", async (e) => {
-				e.preventDefault();
-				await reportMessage(m.id);
-			});
-			actions.appendChild(report);
-		}
-
-      if (m.attachments && m.attachments.length) {
-        for (const a of m.attachments) {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "attBtn";
-          btn.textContent = `Download: ${a.filename}`;
-          btn.addEventListener("click", async () => {
-            await downloadAttachment(a.id, a.filename);
-          });
-          actions.appendChild(btn);
-        }
-      }
-
-      wrap.appendChild(actions);
-      dmInbox.appendChild(wrap);
+  function setMsgTab(tab) {
+    activeMsgTab = tab;
+    if (tab === "inbox") {
+      inboxTabBtn.classList.add("active");
+      sentTabBtn.classList.remove("active");
+      show(inboxPanel, true);
+      show(sentPanel, false);
+    } else {
+      sentTabBtn.classList.add("active");
+      inboxTabBtn.classList.remove("active");
+      show(sentPanel, true);
+      show(inboxPanel, false);
     }
   }
 
   async function refreshInbox() {
-    if (!dmInbox) return;
-    if (!getToken()) {
-      dmInbox.innerHTML = "";
-      return;
-    }
-
+    dmInbox.textContent = "";
     try {
-      const data = await api("/api/messages/inbox?limit=20", { method: "GET" });
-      renderInbox(data.messages || []);
+      const data = await apiFetch("/api/messages/inbox");
+      const msgs = data?.messages || [];
+      renderMessageList(dmInbox, msgs, "inbox");
+
+      // Mark unread as read.
+      const unread = msgs.filter((m) => !m.read_at).map((m) => m.id);
+      if (unread.length > 0) {
+        await apiFetch("/api/messages/mark_read", { method: "POST", json: { message_ids: unread } });
+        refreshUnreadCount();
+      }
     } catch (e) {
-      // Non-fatal; keep core gameplay usable.
+      dmInbox.textContent = e.message || "Failed to load inbox";
+      if (e.status === 401) logout();
     }
   }
 
-  async function sendDirectMessage(toUsername, subject, body) {
-    const payload = { to_username: toUsername, subject, body };
-    return api("/api/messages/send", { method: "POST", body: JSON.stringify(payload) });
-  }
-
-  async function reportMessage(messageID) {
+  async function refreshSent() {
+    dmSent.textContent = "";
     try {
-      await api("/api/messages/report", { method: "POST", body: JSON.stringify({ message_id: messageID }) });
-      setMsg(dmMsg, "Reported to admin.", false);
-      await refreshInbox();
+      const data = await apiFetch("/api/messages/sent");
+      const msgs = data?.messages || [];
+      renderMessageList(dmSent, msgs, "sent");
     } catch (e) {
-      setMsg(dmMsg, e.message || String(e), true);
+      dmSent.textContent = e.message || "Failed to load sent";
+      if (e.status === 401) logout();
     }
   }
 
-  async function downloadAttachment(attachmentID, filename) {
-    const t = getToken();
-    if (!t) {
-      setMsg(dmMsg, "Not logged in.", true);
+  function setReplyContext(msg) {
+    if (!msg) {
+      relatedMessageId.value = "";
+      replyContext.textContent = "";
+      show(replyContext, false);
+      show(replyActions, false);
       return;
     }
 
-    const res = await fetch(`/api/messages/attachments/${attachmentID}`, {
-      headers: { "Authorization": "Bearer " + t }
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      const msg = data && (data.message || data.error) ? (data.message || data.error) : "Download failed";
-      setMsg(dmMsg, msg, true);
+    relatedMessageId.value = String(msg.id);
+    replyContext.textContent = `Replying to message #${msg.id} from ${msg.from}`;
+    show(replyContext, true);
+    show(replyActions, true);
+  }
+
+  function quoteBody(msg) {
+    const header = `On ${fmtTime(msg.created_at)}, ${msg.from} wrote:`;
+    const quoted = (msg.body || "")
+      .split("\n")
+      .map((l) => "> " + l)
+      .join("\n");
+    return `\n\n${header}\n${quoted}`;
+  }
+
+  function renderMessageList(container, messages, mode) {
+    if (!messages || messages.length === 0) {
+      container.textContent = "(no messages)";
       return;
     }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename || "attachment";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+    container.innerHTML = "";
+    for (const m of messages) {
+      const item = document.createElement("div");
+      item.className = "msgitem" + (!m.read_at && mode === "inbox" ? " unread" : "");
+
+      const meta = document.createElement("div");
+      meta.className = "msgmeta";
+      meta.innerHTML =
+        `<span><strong>${escapeHtml(m.subject || "(no subject)")}</strong></span>` +
+        `<span class="small">${escapeHtml(m.kind || "")}</span>` +
+        `<span class="small">${escapeHtml(m.from)} → ${escapeHtml(m.to)}</span>` +
+        `<span class="small">${escapeHtml(fmtTime(m.created_at))}</span>` +
+        (m.read_at ? `<span class="small">Read</span>` : mode === "inbox" ? `<span class="small">Unread</span>` : "");
+
+      const body = document.createElement("div");
+      body.className = "pre";
+      body.textContent = m.body || "";
+
+      const att = document.createElement("div");
+      if (Array.isArray(m.attachments) && m.attachments.length > 0) {
+        const links = m.attachments
+          .map((a) => `<a href="/api/messages/attachments/${a.id}" target="_blank">${escapeHtml(a.filename)}</a>`)
+          .join(" | ");
+        att.innerHTML = `<div class="muted">Attachments: ${links}</div>`;
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "msgactions";
+
+      const replyBtn = document.createElement("button");
+      replyBtn.className = "ghost";
+      replyBtn.textContent = "Reply";
+      replyBtn.addEventListener("click", () => {
+        setMsgTab("inbox");
+        setReplyContext(m);
+        msgTo.value = m.from || "";
+        const subj = m.subject || "";
+        msgSubject.value = subj.toLowerCase().startsWith("re:") ? subj : (subj ? `Re: ${subj}` : "Re:");
+        msgBody.value = (msgBody.value || "") + quoteBody(m);
+        msgBody.focus();
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "ghost";
+      delBtn.textContent = "Delete";
+      delBtn.addEventListener("click", async () => {
+        if (!confirm("Delete this message?")) return;
+        try {
+          await apiFetch("/api/messages/delete", { method: "POST", json: { message_id: m.id } });
+          if (mode === "inbox") await refreshInbox();
+          else await refreshSent();
+          refreshUnreadCount();
+        } catch (e) {
+          alert(e.message || "Delete failed");
+        }
+      });
+
+      const reportBtn = document.createElement("button");
+      reportBtn.className = "ghost";
+      reportBtn.textContent = "Report";
+      reportBtn.addEventListener("click", async () => {
+        if (!confirm("Report this message as abusive/spam?")) return;
+        try {
+          await apiFetch("/api/messages/report", { method: "POST", json: { message_id: m.id } });
+          alert("Reported.");
+        } catch (e) {
+          alert(e.message || "Report failed");
+        }
+      });
+
+      // Only allow reply from inbox; for sent we allow delete.
+      if (mode === "inbox") actions.appendChild(replyBtn);
+      actions.appendChild(delBtn);
+      actions.appendChild(reportBtn);
+
+      item.appendChild(meta);
+      item.appendChild(body);
+      if (att.innerHTML) item.appendChild(att);
+      item.appendChild(actions);
+
+      container.appendChild(item);
+    }
   }
 
-  function parseCommandLine(line) {
-    const t = (line || "").trim();
-    if (!t) return null;
+  async function sendMessage(e) {
+    e.preventDefault();
+    msgSendStatus.textContent = "";
 
-    const parts = t.split(/\s+/).filter(Boolean);
-    const head = (parts[0] || "").toUpperCase();
+    const to = (msgTo.value || "").trim();
+    const subject = (msgSubject.value || "").trim();
+    const body = (msgBody.value || "").trim();
+    const rel = (relatedMessageId.value || "").trim();
 
-    if (head === "SCAN") return { type: "SCAN" };
-    if (head === "HELP") return { type: "HELP" };
-
-    if (head === "MOVE") {
-      const to = parseInt(parts[1] || "0", 10);
-      return { type: "MOVE", to: to };
+    if (!to || !body) {
+      msgSendStatus.textContent = "To and Body are required.";
+      return;
     }
 
-    if (head === "TRADE") {
-      const action = (parts[1] || "").toUpperCase();
-      const commodity = (parts[2] || "").toUpperCase();
-      const quantity = parseInt(parts[3] || "0", 10);
-      return { type: "TRADE", action, commodity, quantity };
-    }
+    try {
+      const file = msgAttachment?.files?.[0];
+      if (file) {
+        const fd = new FormData();
+        fd.append("to_username", to);
+        fd.append("subject", subject);
+        fd.append("body", body);
+        if (rel) fd.append("related_message_id", rel);
+        fd.append("attachment", file, file.name);
+        await apiFetch("/api/messages/send", { method: "POST", body: fd });
+      } else {
+        const payload = { to_username: to, subject, body };
+        if (rel) payload.related_message_id = Number(rel);
+        await apiFetch("/api/messages/send", { method: "POST", json: payload });
+      }
 
-    if (head === "PLANET") {
-      const sub = (parts[1] || "INFO").toUpperCase();
-      if (sub === "COLONIZE") {
-        return { type: "PLANET", action: "COLONIZE", name: parts.slice(2).join(" ") };
-      }
-      if (sub === "LOAD" || sub === "UNLOAD") {
-        const commodity = (parts[2] || "").toUpperCase();
-        const quantity = parseInt(parts[3] || "0", 10);
-        return { type: "PLANET", action: sub, commodity, quantity };
-      }
-      if (sub === "UPGRADE" && (parts[2] || "").toUpperCase() === "CITADEL") {
-        return { type: "PLANET", action: "UPGRADE_CITADEL" };
-      }
-      if (sub === "INFO") return { type: "PLANET", action: "INFO" };
-      // fallback: PLANET <anything>
-      return { type: "PLANET", action: sub };
-    }
+      msgSendStatus.textContent = "Sent.";
+      msgBody.value = "";
+      msgAttachment.value = "";
+      setReplyContext(null);
 
-    if (head === "CORP") {
-      const sub = (parts[1] || "INFO").toUpperCase();
-      if (sub === "CREATE") {
-        return { type: "CORP", action: "CREATE", name: parts.slice(2).join(" ") };
-      }
-      if (sub === "JOIN") {
-        return { type: "CORP", action: "JOIN", name: parts.slice(2).join(" ") };
-      }
-      if (sub === "LEAVE") {
-        return { type: "CORP", action: "LEAVE" };
-      }
-      if (sub === "SAY") {
-        return { type: "CORP", action: "SAY", text: parts.slice(2).join(" ") };
-      }
-      if (sub === "DEPOSIT" || sub === "WITHDRAW") {
-        const quantity = parseInt(parts[2] || "0", 10);
-        return { type: "CORP", action: sub, quantity };
-      }
-      return { type: "CORP", action: "INFO" };
+      // Refresh lists
+      await refreshSent();
+      await refreshUnreadCount();
+    } catch (e2) {
+      msgSendStatus.textContent = e2.message || "Send failed";
+      if (e2.status === 401) logout();
     }
-
-    if (head === "MINE") {
-      const sub = (parts[1] || "INFO").toUpperCase();
-      if (sub === "DEPLOY") {
-        const quantity = parseInt(parts[2] || "0", 10);
-        return { type: "MINE", action: "DEPLOY", quantity };
-      }
-      if (sub === "SWEEP") {
-        return { type: "MINE", action: "SWEEP" };
-      }
-      return { type: "MINE", action: "INFO" };
-    }
-
-    if (head === "RANKINGS") return { type: "RANKINGS" };
-    if (head === "SEASON") return { type: "SEASON" };
-
-    if (head === "MARKET") {
-      const commodity = (parts[1] || "").toUpperCase();
-      return { type: "MARKET", commodity };
-    }
-    if (head === "ROUTE") {
-      const commodity = (parts[1] || "").toUpperCase();
-      return { type: "ROUTE", commodity };
-    }
-    if (head === "EVENTS") return { type: "EVENTS" };
-
-    return { type: head };
   }
 
-  // Register
-  document.getElementById("registerForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    setMsg(authMsg, "", false);
+  async function refreshAdminMap() {
+    adminMapMsg.textContent = "";
+    adminMapPre.textContent = "";
     try {
-      const username = document.getElementById("regUser").value;
-      const password = document.getElementById("regPass").value;
-      const data = await api("/api/register", {
-        method: "POST",
-        body: JSON.stringify({ username, password })
-      });
-      setToken(data.token);
-			if (data && data.state && data.state.must_change_password) {
-				showAuth();
-				showPasswordChange();
-				document.getElementById("oldPass").value = password;
-				setMsg(authMsg, "Password change required.", true);
-				return;
-			}
-			hidePasswordChange();
-			updateUI(data.state, data.sector, data.logs);
-			showGame();
-			setMsg(authMsg, "", false);
+      const data = await apiFetch("/api/admin/ansi_map");
+      adminMapPre.textContent = data?.map || "(empty)";
+    } catch (e) {
+      adminMapMsg.textContent = e.message || "Failed to load map";
+      if (e.status === 401) logout();
+    }
+  }
+
+  async function login(username, password) {
+    authMsg.textContent = "";
+    const data = await apiFetch("/api/login", { method: "POST", json: { username, password } });
+    if (!data?.token) throw new Error("missing token");
+    token = data.token;
+    localStorage.setItem("token", token);
+
+    // Force state load.
+    await enterGame();
+  }
+
+  async function register(username, password) {
+    authMsg.textContent = "";
+    await apiFetch("/api/register", { method: "POST", json: { username, password } });
+    await login(username, password);
+  }
+
+  async function enterGame() {
+    showGameUI();
+    setPage("game");
+
+    await refreshHelp();
+    await refreshState();
+
+    startUnreadPolling();
+  }
+
+  function logout() {
+    token = "";
+    localStorage.removeItem("token");
+    stopUnreadPolling();
+    showAuthUI();
+    setAuthTab("login");
+  }
+
+  // Event wiring
+  tabLogin.addEventListener("click", () => setAuthTab("login"));
+  tabRegister.addEventListener("click", () => setAuthTab("register"));
+
+  $("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await login($("loginUser").value, $("loginPass").value);
     } catch (err) {
-      setMsg(authMsg, err.message, true);
+      authMsg.textContent = err.message || "Login failed";
     }
   });
 
-  // Login
-  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  $("registerForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    setMsg(authMsg, "", false);
     try {
-      const username = document.getElementById("logUser").value;
-      const password = document.getElementById("logPass").value;
-      const data = await api("/api/login", {
-        method: "POST",
-        body: JSON.stringify({ username, password })
-      });
-      setToken(data.token);
-			if (data && data.state && data.state.must_change_password) {
-				showAuth();
-				showPasswordChange();
-				document.getElementById("oldPass").value = password;
-				setMsg(authMsg, "Password change required.", true);
-				return;
-			}
-			hidePasswordChange();
-			updateUI(data.state, data.sector, data.logs);
-			showGame();
-			setMsg(authMsg, "", false);
+      await register($("regUser").value, $("regPass").value);
     } catch (err) {
-      setMsg(authMsg, err.message, true);
+      authMsg.textContent = err.message || "Register failed";
     }
   });
 
-	// Change password (used for initial admin first-login flow)
-	document.getElementById("changePassForm").addEventListener("submit", async (e) => {
-		e.preventDefault();
-		setMsg(authMsg, "", false);
-		try {
-			const old_password = document.getElementById("oldPass").value;
-			const new_password = document.getElementById("newPass").value;
-			const new_password2 = document.getElementById("newPass2").value;
-			if (new_password !== new_password2) {
-				setMsg(authMsg, "New passwords do not match.", true);
-				return;
-			}
-			await api("/api/change_password", {
-				method: "POST",
-				body: JSON.stringify({ old_password, new_password })
-			});
-			document.getElementById("newPass").value = "";
-			document.getElementById("newPass2").value = "";
-			setMsg(authMsg, "Password updated.", false);
-			await refreshState();
-		} catch (err) {
-			setMsg(authMsg, err.message, true);
-		}
-	});
-
-  // Buttons
-  scanBtn.addEventListener("click", async () => {
-    try { await sendCommand({ type: "SCAN" }); } catch (e) { setMsg(cmdMsg, e.message, true); }
-  });
-
-  moveBtn.addEventListener("click", async () => {
-    const to = parseInt(moveTo.value || "0", 10);
-    try { await sendCommand({ type: "MOVE", to }); } catch (e) { setMsg(cmdMsg, e.message, true); }
-  });
-
-  tradeBtn.addEventListener("click", async () => {
-    const action = tradeAction.value;
-    const commodity = tradeCommodity.value;
-    const quantity = parseInt(tradeQty.value || "0", 10);
-    try { await sendCommand({ type: "TRADE", action, commodity, quantity }); } catch (e) { setMsg(cmdMsg, e.message, true); }
+  $("pwChangeForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await apiFetch("/api/change_password", {
+        method: "POST",
+        json: { old_password: $("oldPass").value, new_password: $("newPass").value },
+      });
+      authMsg.textContent = "Password updated.";
+      setAuthTab("login");
+    } catch (err) {
+      authMsg.textContent = err.message || "Password change failed";
+    }
   });
 
   refreshBtn.addEventListener("click", async () => {
-    try { await refreshState(); } catch (e) { setMsg(cmdMsg, e.message, true); }
-  });
-
-  logoutBtn.addEventListener("click", () => {
-    clearToken();
-    showAuth();
-		hidePasswordChange();
-    setMsg(authMsg, "Signed out.", false);
-    setMsg(cmdMsg, "", false);
-		if (dmInbox) dmInbox.innerHTML = "";
-		if (dmMsg) setMsg(dmMsg, "", false);
-  });
-
-	// Direct messaging
-	if (dmRefreshBtn) {
-		dmRefreshBtn.addEventListener("click", async () => {
-			try { await refreshInbox(); } catch (_) {}
-		});
-	}
-	if (dmForm) {
-		dmForm.addEventListener("submit", async (e) => {
-			e.preventDefault();
-			const to = (dmTo.value || "").trim();
-			const subject = (dmSubject.value || "").trim();
-			const body = (dmBody.value || "").trim();
-			if (!to || !body) {
-				setMsg(dmMsg, "Recipient username and message body are required.", true);
-				return;
-			}
-			try {
-				await sendDirectMessage(to, subject, body);
-				dmBody.value = "";
-				setMsg(dmMsg, "Message sent.", false);
-				await refreshInbox();
-			} catch (err) {
-				setMsg(dmMsg, err.message || String(err), true);
-			}
-		});
-	}
-
-  // Command form
-  cmdForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const cmd = parseCommandLine(cmdInput.value);
-    if (!cmd) return;
-    cmdInput.value = "";
-    try {
-      await sendCommand(cmd);
-    } catch (err) {
-      setMsg(cmdMsg, err.message, true);
-    }
-  });
-
-  // Initial boot
-  (async () => {
-		loadVersionBadge();
-    const t = getToken();
-    if (!t) {
-      showAuth();
-			hidePasswordChange();
-      return;
-    }
     try {
       await refreshState();
-    } catch (err) {
-      clearToken();
-      showAuth();
-			hidePasswordChange();
-      setMsg(authMsg, "Session expired. Login again.", true);
+      refreshUnreadCount();
+    } catch (e) {
+      if (e.status === 401) logout();
+    }
+  });
+
+  logoutBtn.addEventListener("click", () => logout());
+
+  sendCmdBtn.addEventListener("click", sendCommand);
+  commandInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendCommand();
+    }
+  });
+
+  messagesNavBtn.addEventListener("click", async () => {
+    if (activePage !== "messages") {
+      setPage("messages");
+      setMsgTab("inbox");
+      await refreshInbox();
+      await refreshSent();
+    } else {
+      setPage("game");
+    }
+  });
+
+  adminMapBtn.addEventListener("click", async () => {
+    if (activePage !== "adminMap") {
+      setPage("adminMap");
+      await refreshAdminMap();
+    } else {
+      setPage("game");
+    }
+  });
+
+  inboxTabBtn.addEventListener("click", async () => {
+    setMsgTab("inbox");
+    await refreshInbox();
+  });
+  sentTabBtn.addEventListener("click", async () => {
+    setMsgTab("sent");
+    await refreshSent();
+  });
+  refreshInboxBtn.addEventListener("click", refreshInbox);
+  refreshSentBtn.addEventListener("click", refreshSent);
+
+  cancelReplyBtn.addEventListener("click", () => setReplyContext(null));
+
+  sendMsgForm.addEventListener("submit", sendMessage);
+
+  refreshAdminMapBtn.addEventListener("click", refreshAdminMap);
+
+  // Init
+  setAuthTab("login");
+  loadVersion();
+
+  // Resume session if token exists
+  (async () => {
+    if (!token) return;
+    try {
+      await enterGame();
+    } catch {
+      logout();
     }
   })();
-
-  // Quick intel buttons
-  marketBtn.addEventListener("click", async () => {
-    try { await sendCommand({ type: "MARKET" }); } catch (e) { setMsg(cmdMsg, e.message, true); }
-  });
-  routeBtn.addEventListener("click", async () => {
-    try { await sendCommand({ type: "ROUTE" }); } catch (e) { setMsg(cmdMsg, e.message, true); }
-  });
-  eventsBtn.addEventListener("click", async () => {
-    try { await sendCommand({ type: "EVENTS" }); } catch (e) { setMsg(cmdMsg, e.message, true); }
-  });
 })();

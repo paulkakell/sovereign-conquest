@@ -245,6 +245,20 @@ func ExecuteCommand(ctx context.Context, pool *pgxpool.Pool, playerID string, cm
 			logsToInsert = append(logsToInsert, logToInsert{kind: l.kind, msg: l.msg})
 		}
 
+	case "SHIPYARD":
+		out, execErr := executeShipyardCommand(ctx, tx, &p, cmd)
+		if execErr != nil {
+			return CommandResponse{OK: false, Error: "db error"}, execErr
+		}
+		if !out.OK {
+			return failWithState(ctx, pool, tx, p, out.Message, out.ErrorCode)
+		}
+		success = true
+		message = out.Message
+		for _, l := range out.Logs {
+			logsToInsert = append(logsToInsert, logToInsert{kind: l.kind, msg: l.msg})
+		}
+
 	case "RANKINGS":
 		out, execErr := executeRankingsCommand(ctx, tx, p)
 		if execErr != nil {
@@ -270,6 +284,19 @@ func ExecuteCommand(ctx context.Context, pool *pgxpool.Pool, playerID string, cm
 
 	default:
 		return failWithState(ctx, pool, tx, p, "Unknown command.", "UNKNOWN_COMMAND")
+	}
+
+	// Award XP for successful actions.
+	if success {
+		xpGain := XPGainForCommand(cmd, cost)
+		if xpGain > 0 {
+			leveled, _, newLevel := AwardXP(&p, xpGain)
+			if leveled {
+				rankMsg := fmt.Sprintf("Rank up! Level %d (%s).", newLevel, RankNameForLevel(newLevel))
+				logsToInsert = append(logsToInsert, logToInsert{kind: "SYSTEM", msg: rankMsg})
+				message = message + "\n" + rankMsg
+			}
+		}
 	}
 
 	if err := SavePlayer(ctx, tx, p); err != nil {
@@ -327,6 +354,7 @@ func helpText() string {
 		"Phase2: PLANET INFO | PLANET COLONIZE [name] | PLANET LOAD {commodity} {qty} | PLANET UNLOAD {commodity} {qty} | PLANET UPGRADE CITADEL",
 		"Phase2: CORP INFO | CORP CREATE {name} | CORP JOIN {name} | CORP LEAVE | CORP SAY {message} | CORP DEPOSIT {credits} | CORP WITHDRAW {credits}",
 		"Phase2: MINE DEPLOY {qty} | MINE SWEEP",
+		"Phase2: SHIPYARD | SHIPYARD BUY {SCOUT|TRADER|FREIGHTER|INTERCEPTOR} | SHIPYARD SELL | SHIPYARD UPGRADE {CARGO|TURNS}",
 		"Phase2: RANKINGS | SEASON",
 		"Phase3: MARKET [ORE|ORGANICS|EQUIPMENT] | ROUTE [ORE|ORGANICS|EQUIPMENT] | EVENTS",
 	}, "\n")
@@ -365,7 +393,7 @@ func commandCost(cmd CommandRequest) int {
 		default:
 			return 0
 		}
-	case "HELP", "CORP", "RANKINGS", "SEASON", "MARKET", "ROUTE", "EVENTS":
+	case "HELP", "CORP", "RANKINGS", "SEASON", "MARKET", "ROUTE", "EVENTS", "SHIPYARD":
 		return 0
 	default:
 		return 0

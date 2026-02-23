@@ -62,9 +62,13 @@ func (s *Server) Router() http.Handler {
 		// Direct messages / bug reporting
 		protected.Get("/api/messages/inbox", s.handleInboxMessages)
 		protected.Get("/api/messages/sent", s.handleSentMessages)
+		protected.Get("/api/messages/unread_count", s.handleUnreadMessageCount)
+		protected.Post("/api/messages/mark_read", s.handleMarkMessagesRead)
+		protected.Post("/api/messages/delete", s.handleDeleteMessage)
 		protected.Post("/api/messages/send", s.handleSendMessage)
 		protected.Post("/api/messages/report", s.handleReportMessage)
 		protected.Get("/api/messages/attachments/{id}", s.handleDownloadMessageAttachment)
+		protected.Get("/api/admin/ansi_map", s.handleAdminAnsiMap)
 		protected.Post("/api/bug_report", s.handleBugReport)
 	})
 
@@ -428,9 +432,10 @@ const (
 )
 
 type sendMessageJSONRequest struct {
-	ToUsername string `json:"to_username"`
-	Subject    string `json:"subject"`
-	Body       string `json:"body"`
+	ToUsername       string `json:"to_username"`
+	Subject          string `json:"subject"`
+	Body             string `json:"body"`
+	RelatedMessageID *int64 `json:"related_message_id,omitempty"`
 }
 
 type reportMessageRequest struct {
@@ -483,6 +488,76 @@ func (s *Server) handleSentMessages(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type markReadMessagesRequest struct {
+	MessageIDs []int64 `json:"message_ids"`
+}
+
+type deleteMessageRequest struct {
+	MessageID int64 `json:"message_id"`
+}
+
+func (s *Server) handleUnreadMessageCount(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	pid := mustPlayerID(ctx)
+
+	c, err := game.CountUnreadDirectMessages(ctx, s.Pool, pid)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "unread": c})
+}
+
+func (s *Server) handleMarkMessagesRead(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	pid := mustPlayerID(ctx)
+
+	var req markReadMessagesRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if len(req.MessageIDs) == 0 {
+		writeError(w, http.StatusBadRequest, "message_ids required")
+		return
+	}
+
+	updated, err := game.MarkDirectMessagesRead(ctx, s.Pool, pid, req.MessageIDs)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "updated": updated})
+}
+
+func (s *Server) handleDeleteMessage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	pid := mustPlayerID(ctx)
+
+	var req deleteMessageRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if req.MessageID <= 0 {
+		writeError(w, http.StatusBadRequest, "message_id required")
+		return
+	}
+
+	if err := game.DeleteDirectMessage(ctx, s.Pool, pid, req.MessageID); err != nil {
+		if errors.Is(err, game.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 func (s *Server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 	pid, ok := playerIDFrom(r.Context())
 	if !ok {
@@ -490,7 +565,7 @@ func (s *Server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toUsername, subject, body, atts, parseErr := parseMessagePayload(w, r, maxDirectMessageBodyLen)
+	toUsername, subject, body, relatedMessageID, atts, parseErr := parseMessagePayload(w, r, maxDirectMessageBodyLen)
 	if parseErr != nil {
 		writeError(w, http.StatusBadRequest, parseErr.Error())
 		return
@@ -538,7 +613,21 @@ func (s *Server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msgID, err := game.InsertDirectMessage(ctx, tx, pid, toPID, game.MessageKindUser, strings.TrimSpace(subject), body, nil)
+	if relatedMessageID != nil {
+		// Related message must be visible to the sender (sender or recipient of the original).
+		var okRel bool
+		err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM direct_messages WHERE id=$1 AND (from_player_id=$2 OR to_player_id=$2))`, *relatedMessageID, pid).Scan(&okRel)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "db error")
+			return
+		}
+		if !okRel {
+			writeError(w, http.StatusBadRequest, "invalid related_message_id")
+			return
+		}
+	}
+
+	msgID, err := game.InsertDirectMessage(ctx, tx, pid, toPID, game.MessageKindUser, strings.TrimSpace(subject), body, relatedMessageID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
@@ -810,36 +899,67 @@ func parseLimit(r *http.Request, def, max int) int {
 	return n
 }
 
-func parseMessagePayload(w http.ResponseWriter, r *http.Request, maxBodyLen int) (toUsername, subject, body string, atts []attachmentInput, err error) {
+func parseMessagePayload(w http.ResponseWriter, r *http.Request, maxLen int) (toUsername, subject, body string, relatedMessageID *int64, atts []attachmentInput, err error) {
 	ct := r.Header.Get("Content-Type")
 	if strings.HasPrefix(ct, "multipart/form-data") {
-		r.Body = http.MaxBytesReader(w, r.Body, maxTotalUploadBytes)
-		if perr := r.ParseMultipartForm(maxMultipartMemory); perr != nil {
-			var mbe *http.MaxBytesError
-			if errors.As(perr, &mbe) {
-				return "", "", "", nil, fmt.Errorf("upload too large (max %d bytes)", maxTotalUploadBytes)
+		mr, e := r.MultipartReader()
+		if e != nil {
+			return "", "", "", nil, nil, fmt.Errorf("invalid multipart: %w", e)
+		}
+		fields := map[string]string{}
+		var attachments []attachmentInput
+		for {
+			part, e := mr.NextPart()
+			if e == io.EOF {
+				break
 			}
-			return "", "", "", nil, fmt.Errorf("invalid form data")
+			if e != nil {
+				return "", "", "", nil, nil, fmt.Errorf("multipart read error: %w", e)
+			}
+			name := part.FormName()
+			if name == "attachment" {
+				fn := part.FileName()
+				ct := part.Header.Get("Content-Type")
+				data, e := io.ReadAll(io.LimitReader(part, int64(maxAttachmentBytes)+1))
+				if e != nil {
+					return "", "", "", nil, nil, fmt.Errorf("attachment read error: %w", e)
+				}
+				if len(data) > maxAttachmentBytes {
+					return "", "", "", nil, nil, fmt.Errorf("attachment too large (max %d bytes)", maxAttachmentBytes)
+				}
+				attachments = append(attachments, attachmentInput{Filename: fn, ContentType: ct, Data: data})
+				continue
+			}
+
+			val, e := io.ReadAll(io.LimitReader(part, int64(maxLen)+1))
+			if e != nil {
+				return "", "", "", nil, nil, fmt.Errorf("read error: %w", e)
+			}
+			if len(val) > maxLen {
+				return "", "", "", nil, nil, fmt.Errorf("field too long")
+			}
+			fields[name] = string(val)
 		}
-		toUsername = r.FormValue("to_username")
-		subject = r.FormValue("subject")
-		body = r.FormValue("body")
-		files := []*multipart.FileHeader{}
-		if r.MultipartForm != nil {
-			files = r.MultipartForm.File["attachments"]
+
+		var rel *int64
+		if raw := strings.TrimSpace(fields["related_message_id"]); raw != "" {
+			id, e := strconv.ParseInt(raw, 10, 64)
+			if e != nil {
+				return "", "", "", nil, nil, fmt.Errorf("invalid related_message_id")
+			}
+			rel = &id
 		}
-		parsed, perr := readAttachments(files)
-		if perr != nil {
-			return "", "", "", nil, perr
-		}
-		return toUsername, subject, body, parsed, nil
+
+		return fields["to_username"], fields["subject"], fields["body"], rel, attachments, nil
 	}
 
-	var req sendMessageJSONRequest
-	if derr := json.NewDecoder(r.Body).Decode(&req); derr != nil {
-		return "", "", "", nil, fmt.Errorf("invalid json")
+	// JSON
+	var payload sendMessageJSONRequest
+	dec := json.NewDecoder(io.LimitReader(r.Body, int64(maxLen)+1024))
+	if e := dec.Decode(&payload); e != nil {
+		return "", "", "", nil, nil, fmt.Errorf("invalid json")
 	}
-	return req.ToUsername, req.Subject, req.Body, nil, nil
+	return payload.ToUsername, payload.Subject, payload.Body, payload.RelatedMessageID, nil, nil
 }
 
 func readAttachments(files []*multipart.FileHeader) ([]attachmentInput, error) {

@@ -24,14 +24,16 @@ type DirectMessageAttachmentView struct {
 }
 
 type DirectMessageView struct {
-	ID          int64                         `json:"id"`
-	Kind        string                        `json:"kind"`
-	Subject     string                        `json:"subject"`
-	Body        string                        `json:"body"`
-	CreatedAt   time.Time                     `json:"created_at"`
-	From        string                        `json:"from"`
-	To          string                        `json:"to"`
-	Attachments []DirectMessageAttachmentView `json:"attachments,omitempty"`
+	ID               int64                         `json:"id"`
+	Kind             string                        `json:"kind"`
+	Subject          string                        `json:"subject"`
+	Body             string                        `json:"body"`
+	CreatedAt        time.Time                     `json:"created_at"`
+	ReadAt           *time.Time                    `json:"read_at,omitempty"`
+	RelatedMessageID *int64                        `json:"related_message_id,omitempty"`
+	From             string                        `json:"from"`
+	To               string                        `json:"to"`
+	Attachments      []DirectMessageAttachmentView `json:"attachments,omitempty"`
 }
 
 type DirectMessageAttachmentData struct {
@@ -141,6 +143,8 @@ func LoadInboxDirectMessages(ctx context.Context, pool *pgxpool.Pool, playerID s
 			m.subject,
 			m.body,
 			m.created_at,
+			m.read_at,
+			m.related_message_id,
 			uf.username AS from_username,
 			ut.username AS to_username
 		FROM direct_messages m
@@ -148,7 +152,7 @@ func LoadInboxDirectMessages(ctx context.Context, pool *pgxpool.Pool, playerID s
 		JOIN users uf ON uf.id = pf.user_id
 		JOIN players pt ON pt.id = m.to_player_id
 		JOIN users ut ON ut.id = pt.user_id
-		WHERE m.to_player_id = $1
+		WHERE m.to_player_id = $1 AND m.deleted_by_to=false
 		ORDER BY m.created_at DESC
 		LIMIT $2
 	`, playerID, limit)
@@ -160,7 +164,7 @@ func LoadInboxDirectMessages(ctx context.Context, pool *pgxpool.Pool, playerID s
 	msgs := make([]DirectMessageView, 0, limit)
 	for rows.Next() {
 		var m DirectMessageView
-		if err := rows.Scan(&m.ID, &m.Kind, &m.Subject, &m.Body, &m.CreatedAt, &m.From, &m.To); err != nil {
+		if err := rows.Scan(&m.ID, &m.Kind, &m.Subject, &m.Body, &m.CreatedAt, &m.ReadAt, &m.RelatedMessageID, &m.From, &m.To); err != nil {
 			return nil, err
 		}
 		msgs = append(msgs, m)
@@ -196,6 +200,8 @@ func LoadSentDirectMessages(ctx context.Context, pool *pgxpool.Pool, playerID st
 			m.subject,
 			m.body,
 			m.created_at,
+			m.read_at,
+			m.related_message_id,
 			uf.username AS from_username,
 			ut.username AS to_username
 		FROM direct_messages m
@@ -203,7 +209,7 @@ func LoadSentDirectMessages(ctx context.Context, pool *pgxpool.Pool, playerID st
 		JOIN users uf ON uf.id = pf.user_id
 		JOIN players pt ON pt.id = m.to_player_id
 		JOIN users ut ON ut.id = pt.user_id
-		WHERE m.from_player_id = $1
+		WHERE m.from_player_id = $1 AND m.deleted_by_from=false
 		ORDER BY m.created_at DESC
 		LIMIT $2
 	`, playerID, limit)
@@ -215,7 +221,7 @@ func LoadSentDirectMessages(ctx context.Context, pool *pgxpool.Pool, playerID st
 	msgs := make([]DirectMessageView, 0, limit)
 	for rows.Next() {
 		var m DirectMessageView
-		if err := rows.Scan(&m.ID, &m.Kind, &m.Subject, &m.Body, &m.CreatedAt, &m.From, &m.To); err != nil {
+		if err := rows.Scan(&m.ID, &m.Kind, &m.Subject, &m.Body, &m.CreatedAt, &m.ReadAt, &m.RelatedMessageID, &m.From, &m.To); err != nil {
 			return nil, err
 		}
 		msgs = append(msgs, m)
@@ -319,7 +325,8 @@ func LoadDirectMessageAttachmentForPlayer(ctx context.Context, q interface {
 		SELECT a.filename, a.content_type, a.data
 		FROM direct_message_attachments a
 		JOIN direct_messages m ON m.id = a.message_id
-		WHERE a.id = $1 AND (m.from_player_id = $2 OR m.to_player_id = $2)
+		WHERE a.id = $1
+		AND ((m.from_player_id = $2 AND m.deleted_by_from=false) OR (m.to_player_id = $2 AND m.deleted_by_to=false))
 	`, attachmentID, playerID).Scan(&filename, &contentType, &data)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", "", nil, ErrNotFound
@@ -354,4 +361,60 @@ func FormatSpamReportBody(reporterUsername string, reported DirectMessageView) s
 		reported.Subject,
 		reported.Body,
 	)
+}
+
+// CountUnreadDirectMessages returns the number of unread inbox messages for a player.
+func CountUnreadDirectMessages(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, playerID string) (int, error) {
+	var c int
+	err := q.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM direct_messages
+		WHERE to_player_id=$1 AND read_at IS NULL AND deleted_by_to=false
+	`, playerID).Scan(&c)
+	return c, err
+}
+
+// MarkDirectMessagesRead marks the provided message IDs as read for the given player.
+// Only messages where the player is the recipient are affected.
+func MarkDirectMessagesRead(ctx context.Context, pool *pgxpool.Pool, playerID string, messageIDs []int64) (int64, error) {
+	if len(messageIDs) == 0 {
+		return 0, nil
+	}
+	ct, err := pool.Exec(ctx, `
+		UPDATE direct_messages
+		SET read_at = COALESCE(read_at, now())
+		WHERE to_player_id=$1 AND id = ANY($2) AND deleted_by_to=false
+	`, playerID, messageIDs)
+	return ct.RowsAffected(), err
+}
+
+// DeleteDirectMessage hides a message from the requesting player.
+// This is a per-user soft delete (sender and recipient can delete independently).
+func DeleteDirectMessage(ctx context.Context, pool *pgxpool.Pool, playerID string, messageID int64) error {
+	ct, err := pool.Exec(ctx, `
+		UPDATE direct_messages
+		SET deleted_by_to=true
+		WHERE id=$1 AND to_player_id=$2 AND deleted_by_to=false
+	`, messageID, playerID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() > 0 {
+		return nil
+	}
+
+	ct, err = pool.Exec(ctx, `
+		UPDATE direct_messages
+		SET deleted_by_from=true
+		WHERE id=$1 AND from_player_id=$2 AND deleted_by_from=false
+	`, messageID, playerID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() > 0 {
+		return nil
+	}
+	return ErrNotFound
 }

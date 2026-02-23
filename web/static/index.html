@@ -1,203 +1,210 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sovereign Conquest</title>
-  <link rel="stylesheet" href="style.css?v=01.04.00">
+  <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <div class="wrap">
-    <header class="header">
-      <div class="title">Sovereign Conquest</div>
-      <div class="subtitle">
-        <span id="versionBadge">v01.04.00</span><span class="muted"> | </span><a id="bugLink" href="bug.html" target="_blank" rel="noopener">Report A Bug</a>
-      </div>
+    <header class="mast">
+      <h1>Sovereign Conquest</h1>
+      <p class="muted">A lightweight space trading and conquest game.</p>
     </header>
 
-    <section id="auth" class="panel">
-      <h2>Access</h2>
-
-      <div id="authGrid" class="grid2">
-        <div class="card">
-          <h3>Create account</h3>
-          <form id="registerForm">
-            <label>Username</label>
-            <input id="regUser" autocomplete="username" minlength="3" maxlength="20" required>
-            <label>Password</label>
-            <input id="regPass" type="password" autocomplete="new-password" minlength="8" maxlength="100" required>
-            <button type="submit">Register</button>
-          </form>
-        </div>
-
-        <div class="card">
-          <h3>Sign in</h3>
-          <form id="loginForm">
-            <label>Username</label>
-            <input id="logUser" autocomplete="username" minlength="3" maxlength="20" required>
-            <label>Password</label>
-            <input id="logPass" type="password" autocomplete="current-password" minlength="8" maxlength="100" required>
-            <button type="submit">Login</button>
-          </form>
-        </div>
+    <section id="auth" class="card">
+      <div class="tabs">
+        <button id="tabLogin" class="tab active">Login</button>
+        <button id="tabRegister" class="tab">Register</button>
       </div>
 
-      <div id="pwCard" class="card hidden">
-        <h3>Change password</h3>
-        <div class="muted">Required on first login for the seeded admin account.</div>
-        <form id="changePassForm">
-          <label>Current password</label>
-          <input id="oldPass" type="password" autocomplete="current-password" minlength="8" maxlength="100" required>
-          <label>New password</label>
-          <input id="newPass" type="password" autocomplete="new-password" minlength="8" maxlength="100" required>
-          <label>Confirm new password</label>
-          <input id="newPass2" type="password" autocomplete="new-password" minlength="8" maxlength="100" required>
-          <button type="submit">Update password</button>
+      <div id="loginPanel">
+        <h2>Login</h2>
+        <form id="loginForm" class="form">
+          <label>Username
+            <input id="loginUser" autocomplete="username" required />
+          </label>
+          <label>Password
+            <input id="loginPass" type="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit">Login</button>
+        </form>
+      </div>
+
+      <div id="registerPanel" style="display:none">
+        <h2>Register</h2>
+        <form id="registerForm" class="form">
+          <label>Username
+            <input id="regUser" autocomplete="username" required />
+          </label>
+          <label>Password
+            <input id="regPass" type="password" autocomplete="new-password" required />
+          </label>
+          <button type="submit">Create Account</button>
+        </form>
+      </div>
+
+      <div id="pwChangePanel" style="display:none">
+        <h2>Change Password</h2>
+        <form id="pwChangeForm" class="form">
+          <label>Old Password
+            <input id="oldPass" type="password" autocomplete="current-password" required />
+          </label>
+          <label>New Password
+            <input id="newPass" type="password" autocomplete="new-password" required />
+          </label>
+          <button type="submit">Update Password</button>
         </form>
       </div>
 
       <div id="authMsg" class="msg"></div>
     </section>
 
-    <section id="game" class="panel hidden">
-      <div class="topbar">
-        <div>
-          <div class="kv"><span class="k">Pilot</span><span id="pilotName" class="v"></span></div>
-          <div class="kv"><span class="k">Corp</span><span id="corpName" class="v"></span></div>
+    <section id="game" style="display:none">
+      <header class="topbar" id="topbar" style="display:none">
+        <div class="topbar-row">
+          <div class="kv"><span class="k">Pilot</span><span class="v" id="pilotName"></span></div>
+          <div class="kv"><span class="k">Rank</span><span class="v" id="rankName"></span></div>
+          <div class="kv"><span class="k">XP</span><span class="v" id="xpValue"></span></div>
+          <div class="kv"><span class="k">Corp</span><span class="v" id="corpName"></span></div>
+          <div class="kv"><span class="k">Season</span><span class="v" id="seasonName"></span></div>
+          <div class="kv"><span class="k">Sector</span><span class="v" id="sectorName"></span></div>
+          <div class="kv"><span class="k">Credits</span><span class="v" id="credits"></span></div>
+          <div class="kv"><span class="k">Turns</span><span class="v" id="turns"></span></div>
+          <div class="kv"><span class="k">Cargo</span><span class="v" id="cargo"></span></div>
+          <div class="kv"><span class="k">Cap</span><span class="v" id="cargoCap"></span></div>
+
+          <button class="ghost" id="messagesNavBtn" title="Messages">
+            🔔 Messages <span id="msgBadge" class="badge" style="display:none">0</span>
+          </button>
+          <button class="ghost" id="adminMapBtn" title="Admin universe map" style="display:none">🗺 Map</button>
+          <button class="ghost" id="refreshBtn" title="Refresh State">Refresh</button>
+          <button class="ghost" id="logoutBtn">Logout</button>
         </div>
-        <div>
-          <div class="kv"><span class="k">Season</span><span id="seasonName" class="v"></span></div>
-          <div class="kv"><span class="k">Sector</span><span id="sectorId" class="v"></span></div>
+      </header>
+
+      <div id="pageGame">
+        <div class="grid2">
+          <section class="card" id="status">
+            <h2>Status</h2>
+            <div class="cols">
+              <div>
+                <div><span class="muted">Discovered:</span> <span id="discCount">0</span></div>
+                <div><span class="muted">Players:</span> <span id="playerCount">0</span></div>
+                <div><span class="muted">Your Corp:</span> <span id="corpInfo">-</span></div>
+              </div>
+              <div>
+                <div><span class="muted">Planet:</span> <span id="planetInfo">-</span></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" id="sector">
+            <h2>Sector</h2>
+            <div id="sectorDetails" class="pre"></div>
+          </section>
+
+          <section class="card" id="port">
+            <h2>Port</h2>
+            <div id="portDetails" class="pre"></div>
+          </section>
+
+          <section class="card" id="event">
+            <h2>Event</h2>
+            <div id="eventDetails" class="pre"></div>
+          </section>
+
+          <section class="card" id="activity">
+            <h2>Activity</h2>
+            <div id="log" class="log"></div>
+          </section>
         </div>
-        <div>
-          <div class="kv"><span class="k">Credits</span><span id="credits" class="v"></span></div>
-          <div class="kv"><span class="k">Turns</span><span id="turns" class="v"></span></div>
-        </div>
-        <div>
-          <div class="kv"><span class="k">Cargo</span><span id="cargo" class="v"></span></div>
-          <div class="kv"><span class="k">Cap</span><span id="cargoCap" class="v"></span></div>
-        </div>
-        <div class="right">
-          <button id="refreshBtn" class="ghost">Refresh</button>
-          <button id="logoutBtn" class="ghost">Logout</button>
+
+        <div class="card cmd">
+          <h2>Command</h2>
+          <div class="cmdline">
+            <input id="commandInput" placeholder="SCAN | MOVE 2 | TRADE BUY ORE 10 | PLANET INFO | MINE DEPLOY 10 | SHIPYARD" />
+            <button id="sendCmdBtn">Send</button>
+          </div>
+          <div id="cmdMsg" class="msg"></div>
+          <details class="help">
+            <summary>Help</summary>
+            <div id="helpText" class="pre"></div>
+          </details>
         </div>
       </div>
 
-      <div class="grid2">
-        <div class="card">
-          <h3>Sector scan</h3>
-          <div class="kv"><span class="k">Name</span><span id="sectorName" class="v"></span></div>
-          <div class="kv"><span class="k">Warps</span><span id="warps" class="v"></span></div>
+      <div id="pageMessages" style="display:none">
+        <section class="card" id="messagesPageCard">
+          <h2>Messages</h2>
+          <p class="muted">Direct messages between players. Unread messages appear highlighted.</p>
 
-          <div id="eventBox" class="hidden">
-            <div class="kv"><span class="k">Event</span><span id="eventTitle" class="v"></span></div>
-            <div class="kv"><span class="k">Effect</span><span id="eventEffect" class="v"></span></div>
-            <div class="kv"><span class="k">Ends</span><span id="eventEnds" class="v"></span></div>
-            <div id="eventDesc" class="muted"></div>
+          <div class="tabs">
+            <button id="inboxTabBtn" class="tab active">Inbox</button>
+            <button id="sentTabBtn" class="tab">Sent</button>
           </div>
 
-          <div class="actions">
-            <button id="scanBtn">Scan</button>
+          <div id="inboxPanel">
             <div class="inline">
-              <input id="moveTo" type="number" min="1" placeholder="Sector id">
-              <button id="moveBtn">Move</button>
+              <button id="refreshInboxBtn">Refresh Inbox</button>
             </div>
+            <div id="dmInbox" class="msglist"></div>
           </div>
-        </div>
 
-        <div class="card">
-          <h3>Port</h3>
-          <div id="noPort" class="muted">No port in this sector.</div>
-
-          <div id="portPanel" class="hidden">
-            <table class="port">
-              <thead>
-                <tr>
-                  <th>Commodity</th>
-                  <th>Mode</th>
-                  <th>Qty</th>
-                  <th>Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Ore</td>
-                  <td id="pOreMode"></td>
-                  <td id="pOreQty"></td>
-                  <td id="pOrePrice"></td>
-                </tr>
-                <tr>
-                  <td>Organics</td>
-                  <td id="pOrgMode"></td>
-                  <td id="pOrgQty"></td>
-                  <td id="pOrgPrice"></td>
-                </tr>
-                <tr>
-                  <td>Equipment</td>
-                  <td id="pEqMode"></td>
-                  <td id="pEqQty"></td>
-                  <td id="pEqPrice"></td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div class="trade">
-              <select id="tradeAction">
-                <option value="BUY">BUY</option>
-                <option value="SELL">SELL</option>
-              </select>
-              <select id="tradeCommodity">
-                <option value="ORE">ORE</option>
-                <option value="ORGANICS">ORGANICS</option>
-                <option value="EQUIPMENT">EQUIPMENT</option>
-              </select>
-              <input id="tradeQty" type="number" min="1" value="10">
-              <button id="tradeBtn">Trade</button>
+          <div id="sentPanel" style="display:none">
+            <div class="inline">
+              <button id="refreshSentBtn">Refresh Sent</button>
             </div>
+            <div id="dmSent" class="msglist"></div>
           </div>
-        </div>
-      </div>
 
-      <div class="card">
-        <h3>Command line</h3>
-        <form id="cmdForm" class="cmd">
-          <input id="cmdInput" placeholder="SCAN | MOVE 12 | TRADE BUY ORE 10 | MARKET | ROUTE | EVENTS | PLANET | CORP INFO | RANKINGS | HELP">
-          <button type="submit">Send</button>
-        </form>
-        <div class="actions">
-          <button id="marketBtn" class="ghost">Market</button>
-          <button id="routeBtn" class="ghost">Route</button>
-          <button id="eventsBtn" class="ghost">Events</button>
-        </div>
-        <div id="cmdMsg" class="msg"></div>
-      </div>
+          <hr />
 
-      <div class="card">
-        <h3>Messages</h3>
-        <form id="dmForm" class="dmForm">
-          <div class="dmRow">
-            <input id="dmTo" placeholder="Recipient username" autocomplete="off">
-            <input id="dmSubject" placeholder="Subject (optional)" autocomplete="off">
+          <h3>Compose</h3>
+          <div id="replyContext" class="muted" style="display:none"></div>
+          <div class="inline" id="replyActions" style="display:none">
+            <button class="ghost" id="cancelReplyBtn">Cancel Reply</button>
           </div>
-          <textarea id="dmBody" rows="3" placeholder="Message"></textarea>
-          <button type="submit">Send message</button>
-        </form>
-        <div id="dmMsg" class="msg"></div>
 
-        <div class="messagesHeader">
-          <span class="muted">Inbox (latest 20)</span>
-          <button id="dmRefreshBtn" class="ghost" type="button">Refresh inbox</button>
-        </div>
-        <div id="dmInbox" class="messages"></div>
+          <form id="sendMsgForm" class="form">
+            <input type="hidden" id="relatedMessageId" />
+            <label>To
+              <input id="msgTo" placeholder="username" required />
+            </label>
+            <label>Subject
+              <input id="msgSubject" placeholder="subject" />
+            </label>
+            <label>Body
+              <textarea id="msgBody" rows="4" placeholder="message" required></textarea>
+            </label>
+            <label>Attachment (optional)
+              <input id="msgAttachment" type="file" />
+            </label>
+            <button type="submit">Send Message</button>
+          </form>
+          <div id="msgSendStatus" class="msg"></div>
+        </section>
       </div>
 
-      <div class="card">
-        <h3>Activity</h3>
-        <div id="logList" class="logs"></div>
+      <div id="pageAdminMap" style="display:none">
+        <section class="card" id="adminMapCard">
+          <h2>Universe Map</h2>
+          <p class="muted">Admin-only ASCII overview of sectors, spaceports, planets, ownership, and player locations.</p>
+          <div class="inline">
+            <button id="refreshAdminMapBtn">Refresh Map</button>
+          </div>
+          <pre id="adminMapPre" class="ansi-map"></pre>
+          <div id="adminMapMsg" class="msg"></div>
+        </section>
       </div>
     </section>
+
+    <footer class="foot muted">
+      <small>v<span id="ver"></span></small>
+    </footer>
   </div>
 
-  <script src="app.js?v=01.04.00"></script>
+  <script src="/static/app.js"></script>
 </body>
 </html>

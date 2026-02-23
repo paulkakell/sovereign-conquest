@@ -22,6 +22,11 @@ func LoadPlayerForUpdate(ctx context.Context, tx pgx.Tx, playerID string) (Playe
 			u.is_admin,
 			u.must_change_password,
 			p.credits,
+			p.xp,
+			p.level,
+			p.ship_type,
+			p.ship_cargo_upgrades,
+			p.ship_turn_upgrades,
 			p.turns,
 			p.turns_max,
 			p.sector_id,
@@ -52,6 +57,11 @@ func LoadPlayerForUpdate(ctx context.Context, tx pgx.Tx, playerID string) (Playe
 		&p.IsAdmin,
 		&p.MustChangePass,
 		&p.Credits,
+		&p.XP,
+		&p.Level,
+		&p.ShipType,
+		&p.ShipCargoUpgrades,
+		&p.ShipTurnUpgrades,
 		&p.Turns,
 		&p.TurnsMax,
 		&p.SectorID,
@@ -70,24 +80,41 @@ func LoadPlayerForUpdate(ctx context.Context, tx pgx.Tx, playerID string) (Playe
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Player{}, ErrNotFound
 	}
-	return p, err
+	if err != nil {
+		return Player{}, err
+	}
+
+	// Keep the stored level consistent with XP for older rows or future formula adjustments.
+	if computed := LevelForXP(p.XP); computed > 0 && computed != p.Level {
+		p.Level = computed
+	}
+	if p.Level < 1 {
+		p.Level = 1
+	}
+
+	return p, nil
 }
 
 func SavePlayer(ctx context.Context, tx pgx.Tx, p Player) error {
 	_, err := tx.Exec(ctx, `
 		UPDATE players SET
 			credits = $2,
-			turns = $3,
-			turns_max = $4,
-			sector_id = $5,
-			cargo_max = $6,
-			cargo_ore = $7,
-			cargo_organics = $8,
-			cargo_equipment = $9,
-			last_turn_regen = $10,
-			season_id = $11
+			xp = $3,
+			level = $4,
+			ship_type = $5,
+			ship_cargo_upgrades = $6,
+			ship_turn_upgrades = $7,
+			turns = $8,
+			turns_max = $9,
+			sector_id = $10,
+			cargo_max = $11,
+			cargo_ore = $12,
+			cargo_organics = $13,
+			cargo_equipment = $14,
+			last_turn_regen = $15,
+			season_id = $16
 		WHERE id = $1
-	`, p.ID, p.Credits, p.Turns, p.TurnsMax, p.SectorID, p.CargoMax, p.CargoOre, p.CargoOrganics, p.CargoEquipment, p.LastTurnRegen, p.SeasonID)
+	`, p.ID, p.Credits, p.XP, p.Level, p.ShipType, p.ShipCargoUpgrades, p.ShipTurnUpgrades, p.Turns, p.TurnsMax, p.SectorID, p.CargoMax, p.CargoOre, p.CargoOrganics, p.CargoEquipment, p.LastTurnRegen, p.SeasonID)
 	return err
 }
 
@@ -158,12 +185,13 @@ func LoadSectorView(ctx context.Context, q interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }, sectorID int) (SectorView, error) {
 	var s SectorView
-	if err := q.QueryRow(ctx, "SELECT id, name FROM sectors WHERE id = $1", sectorID).Scan(&s.ID, &s.Name); err != nil {
+	if err := q.QueryRow(ctx, "SELECT id, name, is_protectorate, protectorate_fighters FROM sectors WHERE id = $1", sectorID).Scan(&s.ID, &s.Name, &s.IsProtectorate, &s.ProtectorateFighters); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return SectorView{}, ErrNotFound
 		}
 		return SectorView{}, err
 	}
+	s.HasShipyard = s.IsProtectorate
 
 	rows, err := q.Query(ctx, "SELECT to_sector FROM warps WHERE from_sector = $1 ORDER BY to_sector", sectorID)
 	if err != nil {
