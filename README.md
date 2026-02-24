@@ -39,6 +39,7 @@ Build note
   - GOPROXY=direct (common when proxy.golang.org is blocked but GitHub is reachable)
   - GOSUMDB=off (common when sum.golang.org is blocked)
   - For fully-offline builds, run `go mod vendor` in ./server and set SC_USE_VENDOR=1.
+  - If module downloads fail with TLS/x509 errors (corporate proxy / private proxy CA), add your CA certificate(s) as `.crt` files under `./server/certs/` and rebuild.
 
 Default ports
 - Web UI:  http://localhost:3000

@@ -29,6 +29,14 @@ services:
         GOSUMDB: ${GOSUMDB:-sum.golang.org}
         GOPRIVATE: ${GOPRIVATE:-}
         GONOSUMDB: ${GONOSUMDB:-}
+        # Optional: proxy settings for module downloads (common on corporate networks).
+        # Docker automatically treats these as "proxy args" when building.
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+        http_proxy: ${http_proxy:-}
+        https_proxy: ${https_proxy:-}
+        no_proxy: ${no_proxy:-}
         # Set to 1 to force a vendored, fully-offline build (requires `server/vendor`).
         SC_USE_VENDOR: ${SC_USE_VENDOR:-0}
     environment:

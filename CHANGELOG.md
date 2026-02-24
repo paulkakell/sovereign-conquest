@@ -1,6 +1,19 @@
 # Changelog
 
 
+## 01.05.03 (2026-02-24)
+
+Fix
+- Docker build: trust additional CA certificates placed under `server/certs/` during both build and runtime (helps corporate proxies / private module proxies).
+- Compose build: pass standard proxy args (HTTP_PROXY/HTTPS_PROXY/NO_PROXY + lowercase variants) into the API image build.
+
+Maintenance
+- Docs: add troubleshooting note for TLS/x509 failures and the `server/certs/` workflow.
+
+Refs
+- SC-BUILD-005 | Commit: N/A (no git metadata in provided artifact)
+
+
 ## 01.05.02 (2026-02-24)
 
 Fix

@@ -4,6 +4,12 @@ WORKDIR /src
 
 RUN apk add --no-cache ca-certificates git
 
+# Optional: trust additional CAs during build (for corporate proxies / private module proxies).
+#
+# Add one or more PEM-encoded `.crt` files under `./server/certs/`.
+COPY certs/ /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
 # Build-time configuration for restricted environments.
 #
 # Examples:
@@ -20,11 +26,24 @@ ARG GOPROXY=https://proxy.golang.org|direct
 ARG GOSUMDB=sum.golang.org
 ARG GOPRIVATE=
 ARG GONOSUMDB=
+# Standard Docker proxy args (optional) for restricted networks.
+ARG HTTP_PROXY=
+ARG HTTPS_PROXY=
+ARG NO_PROXY=
+ARG http_proxy=
+ARG https_proxy=
+ARG no_proxy=
 ARG SC_USE_VENDOR=0
 ENV GOPROXY=${GOPROXY}
 ENV GOSUMDB=${GOSUMDB}
 ENV GOPRIVATE=${GOPRIVATE}
 ENV GONOSUMDB=${GONOSUMDB}
+ENV HTTP_PROXY=${HTTP_PROXY}
+ENV HTTPS_PROXY=${HTTPS_PROXY}
+ENV NO_PROXY=${NO_PROXY}
+ENV http_proxy=${http_proxy}
+ENV https_proxy=${https_proxy}
+ENV no_proxy=${no_proxy}
 
 RUN echo "Go module settings: GOPROXY=${GOPROXY} GOSUMDB=${GOSUMDB} GOPRIVATE=${GOPRIVATE} GONOSUMDB=${GONOSUMDB} SC_USE_VENDOR=${SC_USE_VENDOR}"
 
@@ -51,6 +70,10 @@ RUN MODFLAG="-mod=mod"; \
 FROM alpine:3.20
 WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata
+
+# Optional: trust additional CAs at runtime too (useful if the API calls internal HTTPS endpoints).
+COPY certs/ /usr/local/share/ca-certificates/
+RUN update-ca-certificates
 
 COPY --from=build /out/sovereign-api /app/sovereign-api
 
