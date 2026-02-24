@@ -2,6 +2,22 @@
 
 
 
+
+## 01.05.06 (2026-02-24)
+
+Fix
+- Docker build: move module download/build logic into `server/scripts/build_api.sh` so Portainer/remote builder UIs are less likely to truncate away the actionable Go error output.
+- Docker build: sanitize `SC_BUILD_DNS` values (accept comma-separated lists and tolerate surrounding quotes) and auto-retry module download/build once with a public DNS fallback when failures look DNS-related and `SC_BUILD_DNS` is unset.
+
+Security
+- Build logs: redact basic-auth credentials in GOPROXY values when printing module settings.
+
+Maintenance
+- Build tests: assert the Dockerfile delegates to the build script and that the script retains the expected restricted-network build features.
+
+Refs
+- SC-BUILD-008 | Commit: N/A (no git metadata in provided artifact)
+
 ## 01.05.05 (2026-02-24)
 
 Fix

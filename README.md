@@ -39,7 +39,8 @@ Build note
     - SC_BUILD_NETWORK=host
     This maps to compose `build.network` (equivalent to `docker build --network=host`).
     - If host networking is unavailable, you can override build-time DNS inside the build container:
-      - SC_BUILD_DNS="1.1.1.1 8.8.8.8"
+      - SC_BUILD_DNS="1.1.1.1 8.8.8.8" (space-separated) or SC_BUILD_DNS="1.1.1.1,8.8.8.8" (comma-separated)
+      - If SC_BUILD_DNS is unset and a module download/build fails with a DNS-looking error, the build will auto-retry once using a public DNS fallback.
   - GOPROXY=https://proxy.golang.org|direct (recommended default: falls back to direct VCS fetches if the proxy is unreachable)
   - GOPROXY=direct (common when proxy.golang.org is blocked but GitHub is reachable)
   - GOSUMDB=off (common when sum.golang.org is blocked)

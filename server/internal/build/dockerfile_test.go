@@ -29,11 +29,30 @@ func TestServerDockerfileSupportsRestrictedBuildEnvironments(t *testing.T) {
 		"ARG GOSUMDB",
 		"ARG SC_BUILD_DNS",
 		"ARG SC_USE_VENDOR",
-		"go mod download",
-		"-mod=vendor",
+		"./scripts/build_api.sh",
 	} {
 		if !strings.Contains(dockerfile, want) {
 			t.Fatalf("server/Dockerfile missing %q", want)
+		}
+	}
+
+	// The Dockerfile delegates module download/build logic to a script (keeps the
+	// Dockerfile short enough that some build UIs don't truncate the important Go
+	// error output).
+	scriptPath := filepath.Join(repoRoot, "server", "scripts", "build_api.sh")
+	sbs, err := os.ReadFile(scriptPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", scriptPath, err)
+	}
+	script := string(sbs)
+	for _, want := range []string{
+		"go mod download",
+		"-mod=vendor",
+		"SC_BUILD_DNS",
+		"SC_USE_VENDOR",
+	} {
+		if !strings.Contains(script, want) {
+			t.Fatalf("server/scripts/build_api.sh missing %q", want)
 		}
 	}
 }
