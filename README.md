@@ -35,6 +35,9 @@ UI note
 
 Build note
 - The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy or checksum database, set build args via a local .env file:
+  - If your builder has broken/restricted DNS during image builds (a common Portainer/remote-builder failure mode), set:
+    - SC_BUILD_NETWORK=host
+    This maps to compose `build.network` (equivalent to `docker build --network=host`).
   - GOPROXY=https://proxy.golang.org|direct (recommended default: falls back to direct VCS fetches if the proxy is unreachable)
   - GOPROXY=direct (common when proxy.golang.org is blocked but GitHub is reachable)
   - GOSUMDB=off (common when sum.golang.org is blocked)

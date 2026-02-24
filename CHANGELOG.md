@@ -1,6 +1,20 @@
 # Changelog
 
 
+
+## 01.05.04 (2026-02-24)
+
+Fix
+- Compose build: add `SC_BUILD_NETWORK` to control the build-time network mode (`build.network`) for environments where module downloads fail due to broken/restricted DNS in the build sandbox (common in some Portainer/remote builder setups).
+- Docker build: print actionable diagnostics and remediation hints when `go mod download` or `go build` fails (network/DNS, GOPROXY/GOSUMDB, custom CAs, vendoring).
+
+Maintenance
+- Docs: document `SC_BUILD_NETWORK` in README and `.env.example`.
+- Build tests: assert compose supports `SC_BUILD_NETWORK`.
+
+Refs
+- SC-BUILD-006 | Commit: N/A (no git metadata in provided artifact)
+
 ## 01.05.03 (2026-02-24)
 
 Fix

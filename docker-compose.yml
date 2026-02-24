@@ -20,6 +20,14 @@ services:
   api:
     build:
       context: ./server
+      # If your stack deploy/build environment has restrictive or broken DNS while building
+      # images (common in some Portainer/remote builder setups), this lets you switch the
+      # build-time network mode.
+      #
+      # Examples (set in a local .env file or in your stack's environment variables):
+      #   SC_BUILD_NETWORK=host
+      #   SC_BUILD_NETWORK=default
+      network: ${SC_BUILD_NETWORK:-default}
       args:
         # If your build environment restricts outbound access to the default Go module proxy,
         # override these via a local .env file or exported environment variables.

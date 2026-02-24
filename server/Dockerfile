@@ -50,7 +50,23 @@ RUN echo "Go module settings: GOPROXY=${GOPROXY} GOSUMDB=${GOSUMDB} GOPRIVATE=${
 COPY go.mod ./
 # NOTE: `go mod download` does not accept `-mod=...` (that's a flag for build/test).
 # If you vendor dependencies, set SC_USE_VENDOR=1 to skip module downloads during image build.
-RUN if [ "${SC_USE_VENDOR}" != "1" ]; then go mod download; fi
+RUN if [ "${SC_USE_VENDOR}" != "1" ]; then \
+      echo "Downloading Go modules (requires outbound DNS + HTTPS to GOPROXY/GOSUMDB)..."; \
+      go mod download || { \
+        echo >&2 "ERROR: go mod download failed."; \
+        echo >&2 "Most common causes in stack/CI builders:"; \
+        echo >&2 "  - No outbound internet/DNS from the build sandbox"; \
+        echo >&2 "  - proxy.golang.org and/or sum.golang.org blocked"; \
+        echo >&2 "  - Corporate proxy TLS interception missing CA (add .crt files under server/certs/)"; \
+        echo >&2 "Fix options:"; \
+        echo >&2 "  - Set SC_BUILD_NETWORK=host (compose build.network)"; \
+        echo >&2 "  - Set GOPROXY=direct and/or GOSUMDB=off"; \
+        echo >&2 "  - Fully-offline: run 'go mod vendor' under ./server and set SC_USE_VENDOR=1"; \
+        echo >&2 "Build-time DNS (/etc/resolv.conf):"; \
+        cat /etc/resolv.conf >&2 || true; \
+        exit 1; \
+      }; \
+    fi
 
 COPY . .
 
@@ -64,7 +80,12 @@ RUN if [ "${SC_USE_VENDOR}" = "1" ] && [ ! -d vendor ]; then \
 RUN mkdir -p /out
 RUN MODFLAG="-mod=mod"; \
     if [ "${SC_USE_VENDOR}" = "1" ]; then MODFLAG="-mod=vendor"; fi; \
-    CGO_ENABLED=0 GOOS=linux go build ${MODFLAG} -trimpath -buildvcs=false -o /out/sovereign-api ./cmd/api
+    echo "Building sovereign-api (${MODFLAG})..."; \
+    CGO_ENABLED=0 GOOS=linux go build ${MODFLAG} -trimpath -buildvcs=false -o /out/sovereign-api ./cmd/api || { \
+      echo >&2 "ERROR: go build failed."; \
+      echo >&2 "If the error mentions downloading modules, fix build-time network/DNS or use SC_USE_VENDOR=1 with vendored deps."; \
+      exit 1; \
+    }
 
 # Runtime stage
 FROM alpine:3.20
