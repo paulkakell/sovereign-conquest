@@ -14,7 +14,9 @@ RUN apk add --no-cache ca-certificates git
 # To build fully offline (after vendoring deps):
 #   go mod vendor
 #   docker build --build-arg SC_USE_VENDOR=1 -t sovereign-api ./server
-ARG GOPROXY=https://proxy.golang.org,direct
+# Default uses the "|" separator so Go falls back to direct VCS fetches if the
+# proxy is unreachable (comma only falls back on 404/410).
+ARG GOPROXY=https://proxy.golang.org|direct
 ARG GOSUMDB=sum.golang.org
 ARG GOPRIVATE=
 ARG GONOSUMDB=
@@ -24,12 +26,22 @@ ENV GOSUMDB=${GOSUMDB}
 ENV GOPRIVATE=${GOPRIVATE}
 ENV GONOSUMDB=${GONOSUMDB}
 
+RUN echo "Go module settings: GOPROXY=${GOPROXY} GOSUMDB=${GOSUMDB} GOPRIVATE=${GOPRIVATE} GONOSUMDB=${GONOSUMDB} SC_USE_VENDOR=${SC_USE_VENDOR}"
+
 COPY go.mod ./
 # NOTE: `go mod download` does not accept `-mod=...` (that's a flag for build/test).
 # If you vendor dependencies, set SC_USE_VENDOR=1 to skip module downloads during image build.
 RUN if [ "${SC_USE_VENDOR}" != "1" ]; then go mod download; fi
 
 COPY . .
+
+# If the build is configured to use vendoring, fail fast with a clear message
+# when the vendor directory is missing.
+RUN if [ "${SC_USE_VENDOR}" = "1" ] && [ ! -d vendor ]; then \
+      echo "ERROR: SC_USE_VENDOR=1 but ./server/vendor is missing. Run 'go mod vendor' in ./server (with network access) and rebuild." >&2; \
+      exit 1; \
+    fi
+
 RUN mkdir -p /out
 RUN MODFLAG="-mod=mod"; \
     if [ "${SC_USE_VENDOR}" = "1" ]; then MODFLAG="-mod=vendor"; fi; \

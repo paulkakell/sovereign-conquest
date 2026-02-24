@@ -25,6 +25,7 @@ func TestServerDockerfileSupportsRestrictedBuildEnvironments(t *testing.T) {
 	dockerfile := string(bs)
 	for _, want := range []string{
 		"ARG GOPROXY",
+		"proxy.golang.org|direct",
 		"ARG GOSUMDB",
 		"ARG SC_USE_VENDOR",
 		"go mod download",

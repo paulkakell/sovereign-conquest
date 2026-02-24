@@ -35,6 +35,7 @@ UI note
 
 Build note
 - The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy or checksum database, set build args via a local .env file:
+  - GOPROXY=https://proxy.golang.org|direct (recommended default: falls back to direct VCS fetches if the proxy is unreachable)
   - GOPROXY=direct (common when proxy.golang.org is blocked but GitHub is reachable)
   - GOSUMDB=off (common when sum.golang.org is blocked)
   - For fully-offline builds, run `go mod vendor` in ./server and set SC_USE_VENDOR=1.

@@ -23,7 +23,9 @@ services:
       args:
         # If your build environment restricts outbound access to the default Go module proxy,
         # override these via a local .env file or exported environment variables.
-        GOPROXY: ${GOPROXY:-https://proxy.golang.org,direct}
+        # Use "|direct" so Go falls back to direct VCS fetches if the proxy is
+        # unreachable (comma only falls back on 404/410).
+        GOPROXY: ${GOPROXY:-https://proxy.golang.org|direct}
         GOSUMDB: ${GOSUMDB:-sum.golang.org}
         GOPRIVATE: ${GOPRIVATE:-}
         GONOSUMDB: ${GONOSUMDB:-}

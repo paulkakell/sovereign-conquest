@@ -1,6 +1,19 @@
 # Changelog
 
 
+## 01.05.02 (2026-02-24)
+
+Fix
+- Docker/compose build: default GOPROXY now uses the pipe form (`https://proxy.golang.org|direct`) so Go can fall back to direct VCS fetches when the proxy is unreachable (the previous comma form only falls back on 404/410).
+
+Maintenance
+- Build tests: assert Dockerfile + compose defaults include the proxy fallback behavior.
+- Docs: clarify recommended GOPROXY settings for restricted build environments.
+
+Refs
+- SC-BUILD-004 | Commit: N/A (no git metadata in provided artifact)
+
+
 ## 01.05.01 (2026-02-23)
 
 Fix
