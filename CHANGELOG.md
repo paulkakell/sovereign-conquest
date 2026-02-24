@@ -1,6 +1,19 @@
 # Changelog
 
 
+## 01.05.01 (2026-02-23)
+
+Fix
+- Docker/compose build: allow overriding Go module download settings (GOPROXY/GOSUMDB/GOPRIVATE/GONOSUMDB) via compose build args to support restricted networks.
+- Docker build: add an opt-in vendored build mode (SC_USE_VENDOR=1) that skips `go mod download` and uses `-mod=vendor` for fully-offline image builds.
+
+Maintenance
+- Docs: expand build troubleshooting in README and .env.example.
+
+Refs
+- SC-BUILD-003 | Commit: N/A (no git metadata in provided artifact)
+
+
 ## 01.05.00 (2026-02-23)
 
 Additive

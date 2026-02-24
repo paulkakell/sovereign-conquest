@@ -20,6 +20,15 @@ services:
   api:
     build:
       context: ./server
+      args:
+        # If your build environment restricts outbound access to the default Go module proxy,
+        # override these via a local .env file or exported environment variables.
+        GOPROXY: ${GOPROXY:-https://proxy.golang.org,direct}
+        GOSUMDB: ${GOSUMDB:-sum.golang.org}
+        GOPRIVATE: ${GOPRIVATE:-}
+        GONOSUMDB: ${GONOSUMDB:-}
+        # Set to 1 to force a vendored, fully-offline build (requires `server/vendor`).
+        SC_USE_VENDOR: ${SC_USE_VENDOR:-0}
     environment:
       DATABASE_URL: postgres://sovereign:sovereign@db:5432/sovereign_conquest?sslmode=disable
       JWT_SECRET: dev-secret-change-me

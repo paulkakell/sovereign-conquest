@@ -34,7 +34,10 @@ UI note
 - The top bar includes a Messages bell which opens the Messages page (inbox/sent, reply, delete). Unread messages are shown as a badge count.
 
 Build note
-- The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy, set GOPROXY accordingly (or vendor dependencies).
+- The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy or checksum database, set build args via a local .env file:
+  - GOPROXY=direct (common when proxy.golang.org is blocked but GitHub is reachable)
+  - GOSUMDB=off (common when sum.golang.org is blocked)
+  - For fully-offline builds, run `go mod vendor` in ./server and set SC_USE_VENDOR=1.
 
 Default ports
 - Web UI:  http://localhost:3000
