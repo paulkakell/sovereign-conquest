@@ -27,6 +27,7 @@ func TestServerDockerfileSupportsRestrictedBuildEnvironments(t *testing.T) {
 		"ARG GOPROXY",
 		"proxy.golang.org|direct",
 		"ARG GOSUMDB",
+		"ARG SC_BUILD_DNS",
 		"ARG SC_USE_VENDOR",
 		"go mod download",
 		"-mod=vendor",

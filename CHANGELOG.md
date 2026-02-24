@@ -2,6 +2,21 @@
 
 
 
+## 01.05.05 (2026-02-24)
+
+Fix
+- Docker build: run `go mod download` after copying the full server source so the Go tool can resolve the full module graph (avoids `go build` triggering new downloads unexpectedly in restricted builders).
+- Docker build: add `SC_BUILD_DNS` build arg to optionally override /etc/resolv.conf inside the build stage (workaround for builder sandboxes that inject a broken DNS server).
+- Docker build: auto-detect vendoring when `vendor/modules.txt` is present, so vendored builds work even if build args can't be propagated by the stack deploy UI.
+- Docker build: automatically retry module download/build with `GOSUMDB=off` when failure is checksum-db related (sum.golang.org blocked).
+
+Maintenance
+- Compose: pass `SC_BUILD_DNS` through to the API image build.
+- Docs: document `SC_BUILD_DNS` and clarify vendoring auto-detection.
+
+Refs
+- SC-BUILD-007 | Commit: N/A (no git metadata in provided artifact)
+
 ## 01.05.04 (2026-02-24)
 
 Fix

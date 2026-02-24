@@ -38,10 +38,12 @@ Build note
   - If your builder has broken/restricted DNS during image builds (a common Portainer/remote-builder failure mode), set:
     - SC_BUILD_NETWORK=host
     This maps to compose `build.network` (equivalent to `docker build --network=host`).
+    - If host networking is unavailable, you can override build-time DNS inside the build container:
+      - SC_BUILD_DNS="1.1.1.1 8.8.8.8"
   - GOPROXY=https://proxy.golang.org|direct (recommended default: falls back to direct VCS fetches if the proxy is unreachable)
   - GOPROXY=direct (common when proxy.golang.org is blocked but GitHub is reachable)
   - GOSUMDB=off (common when sum.golang.org is blocked)
-  - For fully-offline builds, run `go mod vendor` in ./server and set SC_USE_VENDOR=1.
+  - For fully-offline builds, run `go mod vendor` in ./server and set SC_USE_VENDOR=1 (or keep vendor/modules.txt in the build context).
   - If module downloads fail with TLS/x509 errors (corporate proxy / private proxy CA), add your CA certificate(s) as `.crt` files under `./server/certs/` and rebuild.
 
 Default ports
