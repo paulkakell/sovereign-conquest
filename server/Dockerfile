@@ -55,7 +55,12 @@ COPY . .
 # We run the build through a script so the Dockerfile stays small enough that
 # some stack deploy/build UIs don't truncate away the actionable Go error output.
 RUN chmod +x ./scripts/build_api.sh \
-  && ./scripts/build_api.sh
+  && (./scripts/build_api.sh > /tmp/sc-build.log 2>&1 || { \
+    echo >&2 "ERROR: build_api.sh failed; showing last 200 lines of /tmp/sc-build.log"; \
+    tail -n 200 /tmp/sc-build.log >&2 || true; \
+    exit 1; \
+  }) \
+  && cat /tmp/sc-build.log
 
 # Runtime stage
 FROM alpine:3.20

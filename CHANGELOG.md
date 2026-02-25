@@ -3,6 +3,18 @@
 
 
 
+## 01.05.07 (2026-02-24)
+
+Fix
+- Docker build: make SC_BUILD_DNS override best-effort (do not fail the build if /etc/resolv.conf is not writable in the builder sandbox).
+- Docker build: on build script failure, emit a compact tail of the captured build log at the end of the Docker RUN step so Portainer/BuildKit error summaries are more likely to include the actionable Go error output.
+
+Maintenance
+- Build tests: assert Dockerfile captures build_api.sh output and prints a tail on failure.
+
+Refs
+- SC-BUILD-009 | Commit: N/A (no git metadata in provided artifact)
+
 ## 01.05.06 (2026-02-24)
 
 Fix

@@ -30,6 +30,8 @@ func TestServerDockerfileSupportsRestrictedBuildEnvironments(t *testing.T) {
 		"ARG SC_BUILD_DNS",
 		"ARG SC_USE_VENDOR",
 		"./scripts/build_api.sh",
+		"/tmp/sc-build.log",
+		"tail -n 200",
 	} {
 		if !strings.Contains(dockerfile, want) {
 			t.Fatalf("server/Dockerfile missing %q", want)

@@ -34,12 +34,14 @@ UI note
 - The top bar includes a Messages bell which opens the Messages page (inbox/sent, reply, delete). Unread messages are shown as a badge count.
 
 Build note
-- The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy or checksum database, set build args via a local .env file:
+- The API container build downloads Go modules during image build. If your build environment restricts outbound access to the default Go module proxy or checksum database, set build args via a local .env file (or Portainer stack variables):
+  - Important: these values feed compose interpolation (build.network + build.args). Setting them under services.api.environment only affects the runtime container and will not affect the image build.
   - If your builder has broken/restricted DNS during image builds (a common Portainer/remote-builder failure mode), set:
     - SC_BUILD_NETWORK=host
     This maps to compose `build.network` (equivalent to `docker build --network=host`).
     - If host networking is unavailable, you can override build-time DNS inside the build container:
       - SC_BUILD_DNS="1.1.1.1 8.8.8.8" (space-separated) or SC_BUILD_DNS="1.1.1.1,8.8.8.8" (comma-separated)
+      - Note: some builder sandboxes mount /etc/resolv.conf read-only; in that case the build prints a warning and continues without applying SC_BUILD_DNS.
       - If SC_BUILD_DNS is unset and a module download/build fails with a DNS-looking error, the build will auto-retry once using a public DNS fallback.
   - GOPROXY=https://proxy.golang.org|direct (recommended default: falls back to direct VCS fetches if the proxy is unreachable)
   - GOPROXY=direct (common when proxy.golang.org is blocked but GitHub is reachable)

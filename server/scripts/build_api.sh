@@ -36,12 +36,16 @@ apply_build_dns() {
   fi
 
   log "Overriding build-time DNS: ${dns_list}"
-  rm -f /etc/resolv.conf || true
+  # Some builder sandboxes mount /etc/resolv.conf read-only. Treat this as best-effort.
+  if ! ( : > /etc/resolv.conf ) 2>/dev/null; then
+    log "WARN: /etc/resolv.conf is not writable in this build environment; skipping SC_BUILD_DNS override."
+    return 0
+  fi
   for ns in ${dns_list}; do
     # Only write tokens that look like IPv4/IPv6 literals.
     case "${ns}" in
       *.*|*:*)
-        echo "nameserver ${ns}" >> /etc/resolv.conf
+        echo "nameserver ${ns}" >> /etc/resolv.conf 2>/dev/null || true
         ;;
     esac
   done
