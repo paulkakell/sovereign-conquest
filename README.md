@@ -50,6 +50,12 @@ Build note
   - `SC_USE_VENDOR=1` is still supported, but vendoring is now auto-detected when `vendor/modules.txt` is present.
   - If module downloads fail with TLS/x509 errors (corporate proxy / private proxy CA), add your CA certificate(s) as `.crt` files under `./server/certs/` and rebuild.
 
+CI/registry note
+- The GitHub Actions publish workflow builds the real service images instead of the repository root:
+  - `ghcr.io/<owner>/sovereign-conquest-api` from `./server/Dockerfile`
+  - `ghcr.io/<owner>/sovereign-conquest-web` from `./web/Dockerfile`
+- Local development remains `docker compose up --build`; the repository root intentionally does not use a combined Dockerfile.
+
 Default ports
 - Web UI:  http://localhost:3000
 - API:     http://localhost:8080

@@ -2,6 +2,20 @@
 
 
 
+## 01.05.09 (2026-03-13)
+
+Fix
+- GitHub Actions container publishing: replace the single root-image workflow with a matrix build that publishes the two real service images (`./server/Dockerfile` and `./web/Dockerfile`) so CI no longer fails on `open Dockerfile: no such file or directory`.
+- Cache isolation: scope the Buildx cache per service image so API and web layer caches do not collide in registry builds.
+- Version metadata: realign `server/internal/config.Version` with the root `VERSION` file.
+
+Maintenance
+- Build regression tests: assert the publish workflow targets `./server` and `./web` instead of the repository root.
+- Documentation: clarify the published GHCR image names and explain that local development still uses `docker compose up --build`.
+
+Refs
+- SC-BUILD-011 | Root-cause commit observed in CI logs: f296352
+
 
 ## 01.05.08 (2026-03-13)
 

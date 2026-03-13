@@ -7,7 +7,7 @@ import (
 
 const (
 	AppName = "Sovereign Conquest"
-	Version = "01.05.08"
+	Version = "01.05.09"
 )
 
 type Config struct {
