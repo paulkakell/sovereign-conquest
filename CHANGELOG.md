@@ -3,6 +3,20 @@
 
 
 
+## 01.05.08 (2026-03-13)
+
+Fix
+- Docker/container build: commit `server/go.sum` and a fully populated `server/vendor/` tree so the API image can build from pinned dependencies without reaching `proxy.golang.org` or `sum.golang.org` during the application dependency step.
+- Build reproducibility: run `go mod tidy` so the module manifest matches the actual compile graph and vendored/non-vendored builds resolve the same dependency set.
+- Version metadata: realign `server/internal/config.Version` with the root `VERSION` file so the shipped version is internally consistent again.
+
+Maintenance
+- Build regression tests: require `server/go.sum` and `server/vendor/modules.txt` to stay committed and verify `.dockerignore` does not exclude vendored dependencies.
+- Documentation: update `README.md` and `.env.example` to make vendoring the default/offline-safe build path while retaining the older DNS/proxy overrides as fallback guidance.
+
+Refs
+- SC-BUILD-010 | Base commit: 2bd576e
+
 ## 01.05.07 (2026-02-24)
 
 Fix
