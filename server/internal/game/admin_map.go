@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -176,7 +177,7 @@ func GenerateAdminAnsiMap(ctx context.Context, pool *pgxpool.Pool) (string, erro
 			} else {
 				r := []rune(strings.TrimSpace(s.PlanetOwner))
 				if len(r) > 0 {
-					planetChar = rune(strings.ToUpper(string(r[0])))[0]
+					planetChar = unicode.ToUpper(r[0])
 				}
 			}
 		}

@@ -348,8 +348,8 @@ func failWithState(ctx context.Context, pool *pgxpool.Pool, tx pgx.Tx, p Player,
 	}, CommandError{Msg: msg}
 }
 
-func helpText() string {
-	return strings.Join([]string{
+func HelpLines() []string {
+	return []string{
 		"Core: SCAN | MOVE {to} | TRADE {BUY|SELL} {ORE|ORGANICS|EQUIPMENT} {qty}",
 		"Phase2: PLANET INFO | PLANET COLONIZE [name] | PLANET LOAD {commodity} {qty} | PLANET UNLOAD {commodity} {qty} | PLANET UPGRADE CITADEL",
 		"Phase2: CORP INFO | CORP CREATE {name} | CORP JOIN {name} | CORP LEAVE | CORP SAY {message} | CORP DEPOSIT {credits} | CORP WITHDRAW {credits}",
@@ -357,7 +357,11 @@ func helpText() string {
 		"Phase2: SHIPYARD | SHIPYARD BUY {SCOUT|TRADER|FREIGHTER|INTERCEPTOR} | SHIPYARD SELL | SHIPYARD UPGRADE {CARGO|TURNS}",
 		"Phase2: RANKINGS | SEASON",
 		"Phase3: MARKET [ORE|ORGANICS|EQUIPMENT] | ROUTE [ORE|ORGANICS|EQUIPMENT] | EVENTS",
-	}, "\n")
+	}
+}
+
+func helpText() string {
+	return strings.Join(HelpLines(), "\n")
 }
 
 func effectiveCommandCost(p Player, cmd CommandRequest) int {

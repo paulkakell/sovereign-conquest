@@ -1,6 +1,27 @@
 # Changelog
 
 
+## 01.06.00 (2026-03-13)
+
+Additive
+- Add a repository-root Dockerfile that builds an all-in-one image for GHCR and generic `docker build .` workflows. The container now serves both the API and the bundled web UI on port 8080.
+- Add `.github/workflows/docker-image.yml` to publish `ghcr.io/<owner>/sovereign-conquest` from the repository root with Buildx cache and provenance attestation.
+- Server can optionally serve the bundled web UI when `WEB_ROOT` is set.
+- API now exposes `/api/version` and `/api/help` for direct UI compatibility in single-container deployments.
+
+Fix
+- CI no longer fails with `failed to read dockerfile: open Dockerfile: no such file or directory` when using a repository-root Docker publish workflow.
+- Single-image deployments no longer depend on a separate nginx container to serve the UI.
+- Fix pre-existing compile issues in the admin map and mine deployment paths so the full Go source tree compiles cleanly again.
+
+Maintenance
+- Add regression tests for the root Dockerfile, the root GHCR workflow, and optional static web serving through the Go server.
+- Update docs and environment examples for root-image deployment.
+
+Refs
+- SC-CI-010, SC-DEPLOY-002 | Base commit: 2bd576e
+
+
 
 ## 01.05.09 (2026-03-13)
 

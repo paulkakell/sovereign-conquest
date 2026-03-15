@@ -29,12 +29,12 @@ Initial admin account (seeded)
 - Admin "god mode": admin players have zero turn costs and can MOVE to any existing sector (teleport).
 
 UI note
-- The login header shows the build version immediately; once the API is reachable, the UI overwrites it with the live backend version from /api/healthz.
+- The login header shows the build version immediately; once the API is reachable, the UI overwrites it with the live backend version from `/api/version` (also exposed by `/api/healthz`).
 - The header includes a "Report A Bug" link which opens a separate bug report window. Bug reports (with optional attachments) are delivered to the Admin account via in-game direct messaging.
 - The top bar includes a Messages bell which opens the Messages page (inbox/sent, reply, delete). Unread messages are shown as a badge count.
 
 Build note
-- This archive now includes `server/go.sum` and a committed `server/vendor/` tree. The default API image build auto-detects `vendor/modules.txt` and uses `-mod=vendor`, so `docker compose up --build` no longer needs live access to `proxy.golang.org` or `sum.golang.org` after the base image is available locally.
+- This archive includes `server/go.sum` and a committed `server/vendor/` tree. The default API image build auto-detects `vendor/modules.txt` and uses `-mod=vendor`, so both `docker compose up --build` and the repository-root image build avoid live access to `proxy.golang.org` or `sum.golang.org` after the base images are available locally.
 - If you intentionally want a networked module restore or need extra build workarounds, set build args via a local `.env` file (or Portainer stack variables):
   - Important: these values feed compose interpolation (`build.network` + `build.args`). Setting them under `services.api.environment` only affects the runtime container and will not affect the image build.
   - If your builder still has broken/restricted DNS during image builds (a common Portainer/remote-builder failure mode), set:
@@ -47,14 +47,18 @@ Build note
   - `GOPROXY=https://proxy.golang.org|direct` (recommended default when you are not using vendoring)
   - `GOPROXY=direct` (common when `proxy.golang.org` is blocked but GitHub is reachable)
   - `GOSUMDB=off` (common when `sum.golang.org` is blocked)
-  - `SC_USE_VENDOR=1` is still supported, but vendoring is now auto-detected when `vendor/modules.txt` is present.
-  - If module downloads fail with TLS/x509 errors (corporate proxy / private proxy CA), add your CA certificate(s) as `.crt` files under `./server/certs/` and rebuild.
+  - `SC_USE_VENDOR=1` is supported, but vendoring is auto-detected when `vendor/modules.txt` is present.
+  - If module downloads fail with TLS/x509 errors (corporate proxy / private module proxy CA), add your CA certificate(s) as `.crt` files under `./server/certs/` and rebuild.
 
-CI/registry note
-- The GitHub Actions publish workflow builds the real service images instead of the repository root:
-  - `ghcr.io/<owner>/sovereign-conquest-api` from `./server/Dockerfile`
-  - `ghcr.io/<owner>/sovereign-conquest-web` from `./web/Dockerfile`
-- Local development remains `docker compose up --build`; the repository root intentionally does not use a combined Dockerfile.
+GHCR / single-container image
+- The repository root now ships a Dockerfile that builds an all-in-one image for GHCR and generic `docker build .` workflows.
+- That image serves both the Go API and the bundled web UI from the same container on port `8080`.
+- Build locally:
+  - `docker build -t sovereign-conquest .`
+- Run locally against Postgres:
+  - `docker run --rm -p 8080:8080 -e DATABASE_URL=postgres://sovereign:sovereign@host.docker.internal:5432/sovereign_conquest?sslmode=disable -e JWT_SECRET=change-me sovereign-conquest`
+- The GitHub Actions workflow at `.github/workflows/docker-image.yml` publishes `ghcr.io/<owner>/sovereign-conquest` from the repository root.
+- Local development still supports the split setup with `docker compose up --build` using `./server/Dockerfile` and `./web/Dockerfile`.
 
 Default ports
 - Web UI:  http://localhost:3000

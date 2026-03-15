@@ -7,7 +7,7 @@ import (
 
 const (
 	AppName = "Sovereign Conquest"
-	Version = "01.05.09"
+	Version = "01.06.00"
 )
 
 type Config struct {
@@ -24,6 +24,7 @@ type Config struct {
 	EventTickSeconds        int
 	ProtectorateTickSeconds int
 	HTTPAddr                string
+	WebRoot                 string
 }
 
 func Load() Config {
@@ -41,6 +42,7 @@ func Load() Config {
 		EventTickSeconds:        envInt("EVENT_TICK_SECONDS", 60),
 		ProtectorateTickSeconds: envInt("PROTECTORATE_TICK_SECONDS", 60),
 		HTTPAddr:                env("HTTP_ADDR", ":8080"),
+		WebRoot:                 env("WEB_ROOT", ""),
 	}
 }
 

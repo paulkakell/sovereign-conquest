@@ -107,7 +107,7 @@
 context.Context api to the stdlib -- set out to design a router that is faster, more modular and simpler than anything
 else out there -- while not introducing any custom handler types or dependencies. Today, `chi` still has zero dependencies,
 and in many ways is future proofed from changes, given it's minimal nature. Between versions, chi's iterations have been very
-incremental, with the architecture and api being the same today as it was originally designed in 2016. For this reason it 
+incremental, with the architecture and api being the same today as it was originally designed in 2016. For this reason it
 makes chi a pretty easy project to maintain, as well thanks to the many amazing community contributions over the years
 to who all help make chi better (total of 86 contributors to date -- thanks all!).
 
@@ -267,7 +267,7 @@ Cheers all, happy coding!
 - Fix a few minor issues after v3 release
 - Move `docgen` sub-pkg to https://github.com/go-chi/docgen
 - Move `render` sub-pkg to https://github.com/go-chi/render
-- Add new `URLFormat` handler to chi/middleware sub-pkg to make working with url mime 
+- Add new `URLFormat` handler to chi/middleware sub-pkg to make working with url mime
   suffixes easier, ie. parsing `/articles/1.json` and `/articles/1.xml`. See comments in
   https://github.com/go-chi/chi/blob/master/middleware/url_format.go for example usage.
 
@@ -315,7 +315,7 @@ Cheers all, happy coding!
   utilized by `"net/http"` and `http.Request` to managing deadlines, cancelation signals and other
   request-scoped values. We're very excited about the new context addition and are proud to
   introduce chi v2, a minimal and powerful routing package for building large HTTP services,
-  with zero external dependencies. Chi focuses on idiomatic design and encourages the use of 
+  with zero external dependencies. Chi focuses on idiomatic design and encourages the use of
   stdlib HTTP handlers and middlewares.
 - chi v2 deprecates its `chi.Handler` interface and requires `http.Handler` or `http.HandlerFunc`
 - chi v2 stores URL routing parameters and patterns in the standard request context: `r.Context()`

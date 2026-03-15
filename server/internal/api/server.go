@@ -8,6 +8,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -46,6 +48,20 @@ func (s *Server) Router() http.Handler {
 			"version": config.Version,
 		})
 	})
+	r.Get("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":      true,
+			"name":    config.AppName,
+			"version": config.Version,
+		})
+	})
+	r.Get("/api/help", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":   true,
+			"help": game.HelpLines(),
+		})
+	})
 
 	r.Post("/api/register", s.handleRegister)
 	r.Post("/api/login", s.handleLogin)
@@ -72,7 +88,62 @@ func (s *Server) Router() http.Handler {
 		protected.Post("/api/bug_report", s.handleBugReport)
 	})
 
+	if s.Cfg.WebRoot != "" {
+		r.NotFound(spaHandler(s.Cfg.WebRoot))
+	}
+
 	return r
+}
+
+func spaHandler(root string) http.HandlerFunc {
+	indexPath := filepath.Join(root, "index.html")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+
+		rel := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
+		if rel == "." || rel == "/" || rel == "" {
+			serveNoStoreFile(w, r, indexPath)
+			return
+		}
+
+		fullPath := filepath.Join(root, filepath.FromSlash(rel))
+		if info, err := os.Stat(fullPath); err == nil {
+			if info.IsDir() {
+				indexCandidate := filepath.Join(fullPath, "index.html")
+				if _, err := os.Stat(indexCandidate); err == nil {
+					serveNoStoreFile(w, r, indexCandidate)
+					return
+				}
+			} else {
+				if filepath.Ext(rel) == ".html" {
+					serveNoStoreFile(w, r, fullPath)
+					return
+				}
+				http.ServeFile(w, r, fullPath)
+				return
+			}
+		}
+
+		if filepath.Ext(rel) != "" {
+			http.NotFound(w, r)
+			return
+		}
+
+		serveNoStoreFile(w, r, indexPath)
+	}
+}
+
+func serveNoStoreFile(w http.ResponseWriter, r *http.Request, filename string) {
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeFile(w, r, filename)
 }
 
 type ctxKey string
@@ -103,6 +174,11 @@ func playerIDFrom(ctx context.Context) (string, bool) {
 	v := ctx.Value(ctxPlayerID)
 	id, ok := v.(string)
 	return id, ok
+}
+
+func mustPlayerID(ctx context.Context) string {
+	id, _ := playerIDFrom(ctx)
+	return id
 }
 
 func userIDFrom(ctx context.Context) (string, bool) {
@@ -730,6 +806,45 @@ func (s *Server) handleReportMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":      true,
 		"message": "Reported to admin.",
+	})
+}
+
+func (s *Server) handleAdminAnsiMap(w http.ResponseWriter, r *http.Request) {
+	pid, ok := playerIDFrom(r.Context())
+	if !ok || pid == "" {
+		writeError(w, http.StatusUnauthorized, "missing player context")
+		return
+	}
+
+	var isAdmin bool
+	err := s.Pool.QueryRow(r.Context(), `
+		SELECT u.is_admin
+		FROM players p
+		JOIN users u ON u.id = p.user_id
+		WHERE p.id = $1
+	`, pid).Scan(&isAdmin)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusUnauthorized, "player not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if !isAdmin {
+		writeError(w, http.StatusForbidden, "admin access required")
+		return
+	}
+
+	ansiMap, err := game.GenerateAdminAnsiMap(r.Context(), s.Pool)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":  true,
+		"map": ansiMap,
 	})
 }
 

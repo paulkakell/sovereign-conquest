@@ -61,7 +61,7 @@ func mineDeploy(ctx context.Context, tx pgx.Tx, p *Player, qty int) (phase2Resul
 	}
 
 	var newQty int
-	err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO mines(sector_id, owner_player_id, owner_corp_id, qty)
 		VALUES ($1,$2,$3,$4)
 		ON CONFLICT (sector_id, owner_player_id)
