@@ -1,0 +1,40 @@
+name: Fix Root Docker Test
+
+on:
+  push:
+    branches:
+      - release-01.06.01-fixes
+    paths:
+      - .github/workflows/fix-root-docker-test.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release-01.06.01-fixes
+          fetch-depth: 0
+
+      - name: Update stale assertions
+        shell: bash
+        run: |
+          sed -i 's/FROM golang:1.22-alpine AS build/FROM golang:1.26.5-alpine3.22 AS build/' server/internal/build/root_dockerfile_test.go
+          sed -i 's/ENV WEB_ROOT=\/app\/web/WEB_ROOT=\/app\/web/' server/internal/build/root_dockerfile_test.go
+
+      - name: Validate and commit
+        shell: bash
+        run: |
+          cd server
+          gofmt -w internal/build/root_dockerfile_test.go
+          go test -count=1 ./internal/build
+          cd ..
+          git add -- server/internal/build/root_dockerfile_test.go
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'test(container): align root image assertions'
+          git push origin HEAD:release-01.06.01-fixes
