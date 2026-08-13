@@ -22,12 +22,12 @@ func TestRootDockerfileBuildsCombinedImage(t *testing.T) {
 
 	dockerfile := string(bs)
 	for _, want := range []string{
-		"FROM golang:1.22-alpine AS build",
+		"FROM golang:1.26.5-alpine3.22 AS build",
 		"COPY server/ /src/server/",
 		"WORKDIR /src/server",
 		"./scripts/build_api.sh",
-		"COPY web/static/ /app/web/",
-		"ENV WEB_ROOT=/app/web",
+		"COPY --chown=10001:10001 web/static/ /app/web/",
+		"WEB_ROOT=/app/web",
 		"EXPOSE 8080",
 	} {
 		if !strings.Contains(dockerfile, want) {
