@@ -51,9 +51,10 @@ func main() {
 	game.StartProtectorateTicker(ctx, pool, cfg.ProtectorateTickSeconds)
 
 	baseHandler := (&api.Server{Cfg: cfg, Pool: pool}).Router()
+	adminHandler := api.RequireAdministrator(cfg, pool, baseHandler)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.HardenHTTP(pool, baseHandler),
+		Handler:           api.HardenHTTP(pool, adminHandler),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
