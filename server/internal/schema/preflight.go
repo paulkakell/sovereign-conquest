@@ -67,11 +67,21 @@ WHERE season_id IS NULL;
 
 ALTER TABLE players
 	ALTER COLUMN season_id SET NOT NULL;
+
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+	id bigserial PRIMARY KEY,
+	actor_user_id text REFERENCES users(id) ON DELETE SET NULL,
+	action text NOT NULL,
+	details jsonb NOT NULL DEFAULT '{}'::jsonb,
+	created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_log_created_at
+	ON admin_audit_log(created_at DESC);
 `
 
-// PrepareSeasonSchema establishes the season dependency before the legacy DDL
-// creates indexes that reference players.season_id. It is safe on fresh and
-// existing databases and may be removed after the DDL is split into migrations.
+// PrepareSeasonSchema establishes prerequisite tables and columns before the
+// legacy DDL creates dependent indexes. It is safe on fresh and existing data.
 func PrepareSeasonSchema(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, seasonPreflightDDL)
 	return err
