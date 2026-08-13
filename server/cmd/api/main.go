@@ -28,6 +28,9 @@ func main() {
 	}
 	defer pool.Close()
 
+	if err := schema.PrepareSeasonSchema(ctx, pool); err != nil {
+		log.Fatalf("schema preflight failed: %v", err)
+	}
 	if err := schema.Ensure(ctx, pool); err != nil {
 		log.Fatalf("schema ensure failed: %v", err)
 	}
@@ -57,6 +60,9 @@ func main() {
 		Addr:              cfg.HTTPAddr,
 		Handler:           (&api.Server{Cfg: cfg, Pool: pool}).Router(),
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {

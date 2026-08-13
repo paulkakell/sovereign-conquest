@@ -44,7 +44,7 @@ func TestTokenAlgorithmAndSessionVersion(t *testing.T) {
 	bad := jwt.NewWithClaims(jwt.SigningMethodHS384, Claims{
 		UserID: "user", PlayerID: "player",
 		RegisteredClaims: jwt.RegisteredClaims{
-			IssuedAt: jwt.NewNumericDate(time.Now().UTC()),
+			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(time.Hour)),
 		},
 	})
