@@ -1,0 +1,48 @@
+name: Correct Docker Base Tags
+
+on:
+  push:
+    branches:
+      - release-01.06.01-fixes
+    paths:
+      - .github/workflows/fix-docker-base-010601.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release-01.06.01-fixes
+          fetch-depth: 0
+
+      - name: Correct official image tags
+        shell: bash
+        run: |
+          sed -i 's/golang:1.26.5-alpine3.22/golang:1.26.5-alpine3.24/g' Dockerfile server/Dockerfile server/internal/build/root_dockerfile_test.go
+          sed -i 's/FROM alpine:3.22/FROM alpine:3.24/g' Dockerfile server/Dockerfile
+
+      - name: Validate source and images
+        shell: bash
+        run: |
+          cd server
+          gofmt -w internal/build/root_dockerfile_test.go
+          go test -count=1 ./internal/build
+          cd ..
+          docker build --pull --tag sovereign-conquest:validation .
+          docker build --pull --tag sovereign-conquest-api:validation ./server
+          docker build --pull --tag sovereign-conquest-web:validation ./web
+
+      - name: Commit validated correction
+        shell: bash
+        run: |
+          git rm -f -- .github/workflows/fix-docker-base-010601.yml
+          git add -- Dockerfile server/Dockerfile server/internal/build/root_dockerfile_test.go
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(container): use supported official base tags'
+          git push origin HEAD:release-01.06.01-fixes
