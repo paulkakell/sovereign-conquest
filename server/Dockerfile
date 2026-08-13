@@ -1,4 +1,4 @@
-FROM golang:1.26.5-alpine3.22 AS build
+FROM golang:1.26.5-alpine3.24 AS build
 WORKDIR /src
 RUN apk add --no-cache ca-certificates git
 COPY certs/ /usr/local/share/ca-certificates/
@@ -27,7 +27,7 @@ RUN chmod +x ./scripts/build_api.sh \
   && (./scripts/build_api.sh > /tmp/sc-build.log 2>&1 || { tail -n 200 /tmp/sc-build.log >&2 || true; exit 1; }) \
   && cat /tmp/sc-build.log
 
-FROM alpine:3.22
+FROM alpine:3.24
 WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata wget \
   && addgroup -S -g 10001 sovereign \

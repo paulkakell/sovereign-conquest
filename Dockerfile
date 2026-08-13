@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM golang:1.26.5-alpine3.22 AS build
+FROM golang:1.26.5-alpine3.24 AS build
 WORKDIR /src
 
 RUN apk add --no-cache ca-certificates git
@@ -43,7 +43,7 @@ RUN chmod +x ./scripts/build_api.sh \
     }) \
     && cat /tmp/sc-build.log
 
-FROM alpine:3.22
+FROM alpine:3.24
 WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata wget \
     && addgroup -S -g 10001 sovereign \
