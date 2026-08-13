@@ -47,7 +47,7 @@ func main() {
 
 	game.StartPortTicker(ctx, pool, cfg.PortTickSeconds)
 	game.StartPlanetTicker(ctx, pool, cfg.PlanetTickSeconds)
-	game.StartEventTicker(ctx, pool, cfg.EventTickSeconds)
+	game.StartEventTickerLeader(ctx, pool, cfg.EventTickSeconds)
 	game.StartProtectorateTicker(ctx, pool, cfg.ProtectorateTickSeconds)
 
 	baseHandler := (&api.Server{Cfg: cfg, Pool: pool}).Router()
