@@ -18,13 +18,12 @@ import (
 
 func main() {
 	cfg := config.Load()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("db connect failed: %v", err)
+		log.Fatalf("database connection failed: %v", err)
 	}
 	defer pool.Close()
 
@@ -34,21 +33,16 @@ func main() {
 	if err := schema.Ensure(ctx, pool); err != nil {
 		log.Fatalf("schema ensure failed: %v", err)
 	}
-
 	if err := game.EnsureUniverse(ctx, pool, game.UniverseConfig{Seed: cfg.UniverseSeed, Sectors: cfg.UniverseSectors}); err != nil {
-		log.Fatalf("universe init failed: %v", err)
+		log.Fatalf("universe initialization failed: %v", err)
 	}
-
 	if err := game.EnsureProtectorateSectors(ctx, pool, cfg.UniverseSeed); err != nil {
-		log.Fatalf("protectorate init failed: %v", err)
+		log.Fatalf("protectorate initialization failed: %v", err)
 	}
-
-	if res, err := game.EnsureInitialAdmin(ctx, pool, cfg.InitialAdminUser, cfg.InitialAdminPass); err != nil {
-		log.Printf("initial admin ensure failed: %v", err)
-	} else if res.Created {
-		log.Printf("initial admin ensured: username=%s (password change required on first login)", res.Username)
-	} else if res.Promoted && res.PasswordReset {
-		log.Printf("initial admin recovered: username=%s promoted to admin and password reset (password change required on first login)", res.Username)
+	if result, err := game.EnsureInitialAdmin(ctx, pool, cfg.InitialAdminUser, cfg.InitialAdminPass); err != nil {
+		log.Printf("administrator initialization failed: %v", err)
+	} else if result.Created || result.Promoted {
+		log.Printf("administrator account initialized: username=%s", result.Username)
 	}
 
 	game.StartPortTicker(ctx, pool, cfg.PortTickSeconds)
@@ -56,9 +50,10 @@ func main() {
 	game.StartEventTicker(ctx, pool, cfg.EventTickSeconds)
 	game.StartProtectorateTicker(ctx, pool, cfg.ProtectorateTickSeconds)
 
-	srv := &http.Server{
+	baseHandler := (&api.Server{Cfg: cfg, Pool: pool}).Router()
+	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           (&api.Server{Cfg: cfg, Pool: pool}).Router(),
+		Handler:           api.HardenHTTP(pool, baseHandler),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -67,7 +62,7 @@ func main() {
 
 	go func() {
 		log.Printf("api listening on %s", cfg.HTTPAddr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("http server failed: %v", err)
 		}
 	}()
@@ -76,8 +71,8 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownContext, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
-	_ = srv.Shutdown(shutdownCtx)
+	_ = server.Shutdown(shutdownContext)
 	cancel()
 }
