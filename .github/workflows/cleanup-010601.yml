@@ -1,0 +1,37 @@
+name: Cleanup Temporary Workflows
+
+on:
+  push:
+    branches:
+      - release-01.06.01-fixes
+    paths:
+      - .github/workflows/cleanup-010601.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release-01.06.01-fixes
+          fetch-depth: 0
+
+      - name: Remove temporary helpers
+        shell: bash
+        run: |
+          git rm -f -- \
+            .github/workflows/cleanup-010601.yml \
+            .github/workflows/prepend-changelog.yml \
+            .github/workflows/repair-root-test-v2.yml \
+            .github/workflows/repair-root-test-v3.yml
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'ci: remove temporary repair workflows'
+          git push origin HEAD:release-01.06.01-fixes
