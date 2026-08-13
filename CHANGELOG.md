@@ -23,7 +23,7 @@ Reliability and performance
 
 Maintenance
 - Version metadata is aligned at 01.06.01.
-- Root and API Docker build stages use Go 1.26.5 and Alpine 3.22.
+- Root and API Docker build stages use Go 1.26.5 and Alpine 3.24.
 - CI runs JavaScript syntax checks, formatting verification, unit and regression tests, race detection, Go vet, and Compose validation.
 - Release notes were added under `docs/`.
 
