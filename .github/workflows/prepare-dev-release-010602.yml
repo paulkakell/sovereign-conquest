@@ -1,0 +1,1067 @@
+name: Prepare Development Release 01.06.02
+
+on:
+  push:
+    branches:
+      - release-01.06.01-fixes
+    paths:
+      - .github/workflows/prepare-dev-release-010602.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v5
+        with:
+          ref: release-01.06.01-fixes
+          fetch-depth: 0
+
+      - name: Set up patched Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.6
+          cache-dependency-path: server/go.sum
+
+      - name: Prepare version, workflows, and documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          from textwrap import dedent
+
+          VERSION = "01.06.02"
+          BRANCH = "release-01.06.01-fixes"
+
+          def read(path: str) -> str:
+              return Path(path).read_text()
+
+          def write(path: str, content: str) -> None:
+              target = Path(path)
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(content)
+
+          def replace_required(path: str, old: str, new: str) -> None:
+              content = read(path)
+              if old not in content:
+                  raise SystemExit(f"{path}: required text not found: {old}")
+              write(path, content.replace(old, new))
+
+          write("VERSION", VERSION + "\n")
+          replace_required("server/internal/config/config.go", 'Version = "01.06.01"', f'Version = "{VERSION}"')
+          replace_required("Dockerfile", "golang:1.26.5-alpine3.24", "golang:1.26.6-alpine3.24")
+          replace_required("server/Dockerfile", "golang:1.26.5-alpine3.24", "golang:1.26.6-alpine3.24")
+          replace_required("server/internal/build/root_dockerfile_test.go", "golang:1.26.5-alpine3.24", "golang:1.26.6-alpine3.24")
+          replace_required("web/static/index.html", "01.06.01", VERSION)
+          replace_required("server/internal/build/web_contract_test.go", "01.06.01", VERSION)
+
+          write("web/static/bug.html", dedent(f'''\
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Report A Bug - Sovereign Conquest</title>
+            <link rel="stylesheet" href="/style.css?v={VERSION}">
+          </head>
+          <body>
+            <div class="wrap">
+              <header class="header">
+                <div class="title">Report A Bug</div>
+                <div class="subtitle" id="bugVersion">v{VERSION}</div>
+              </header>
+              <section class="panel">
+                <div class="card">
+                  <h3>Bug report</h3>
+                  <div class="muted">This sends a message, with optional attachments, to the administrator account through in-game messaging.</div>
+                  <form id="bugForm" class="bugForm">
+                    <label>Title</label>
+                    <input id="bugSubject" maxlength="120" required placeholder="Short summary">
+                    <label>Description</label>
+                    <textarea id="bugBody" rows="10" maxlength="8000" required placeholder="What happened? What did you expect? Steps to reproduce?"></textarea>
+                    <label>Attachments (optional)</label>
+                    <div class="muted">Up to 5 files, 5 MiB each, 25 MiB total.</div>
+                    <input id="bugFiles" type="file" multiple>
+                    <button type="submit">Send bug report</button>
+                  </form>
+                  <div id="bugMsg" class="msg"></div>
+                  <div id="bugHint" class="muted"></div>
+                </div>
+              </section>
+            </div>
+            <script src="/bug.js?v={VERSION}"></script>
+          </body>
+          </html>
+          '''))
+
+          ci = dedent('''\
+          name: CI
+
+          on:
+            pull_request:
+              branches: [main]
+            push:
+              branches: [main, release-01.06.01-fixes]
+            workflow_dispatch:
+
+          permissions:
+            contents: read
+
+          concurrency:
+            group: ci-__O__ github.workflow __C__-__O__ github.ref __C__
+            cancel-in-progress: true
+
+          jobs:
+            validate:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Checkout
+                  uses: actions/checkout@v5
+                  with:
+                    persist-credentials: false
+
+                - name: Set up Go
+                  uses: actions/setup-go@v5
+                  with:
+                    go-version: 1.26.6
+                    cache-dependency-path: server/go.sum
+
+                - name: Verify JavaScript syntax
+                  run: |
+                    node --check web/static/app.js
+                    node --check web/static/compat-010601.js
+                    node --check web/static/bug.js
+
+                - name: Verify Go formatting
+                  working-directory: server
+                  shell: bash
+                  run: |
+                    files="$(gofmt -l .)"
+                    if [ -n "$files" ]; then
+                      printf 'Go files require gofmt:\n%s\n' "$files" >&2
+                      exit 1
+                    fi
+
+                - name: Verify module graph
+                  working-directory: server
+                  run: go mod verify
+
+                - name: Run unit and regression tests
+                  working-directory: server
+                  run: go test -count=1 ./...
+
+                - name: Run race tests
+                  working-directory: server
+                  run: go test -race -count=1 ./...
+
+                - name: Run Go vet
+                  working-directory: server
+                  run: go vet ./...
+
+                - name: Run Go vulnerability analysis
+                  working-directory: server
+                  shell: bash
+                  run: |
+                    go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+                    "$(go env GOPATH)/bin/govulncheck" ./...
+
+                - name: Validate Compose configuration
+                  shell: bash
+                  run: |
+                    cp .env.example .env
+                    docker compose config --quiet
+          ''')
+          write(".github/workflows/ci.yml", ci)
+
+          build_validation = dedent('''\
+          name: Build Validation
+
+          on:
+            pull_request:
+              branches: [main]
+            push:
+              branches: [main, release-01.06.01-fixes]
+            workflow_dispatch:
+
+          permissions:
+            contents: read
+
+          concurrency:
+            group: build-__O__ github.workflow __C__-__O__ github.ref __C__
+            cancel-in-progress: true
+
+          jobs:
+            containers:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Checkout
+                  uses: actions/checkout@v5
+                  with:
+                    persist-credentials: false
+
+                - name: Build combined image
+                  run: docker build --pull --tag sovereign-conquest:validation .
+
+                - name: Build API image
+                  run: docker build --pull --tag sovereign-conquest-api:validation ./server
+
+                - name: Build web image
+                  run: docker build --pull --tag sovereign-conquest-web:validation ./web
+          ''')
+          write(".github/workflows/build-validation.yml", build_validation)
+
+          codeql = dedent('''\
+          name: CodeQL
+
+          on:
+            pull_request:
+              branches: [main]
+            push:
+              branches: [main, release-01.06.01-fixes]
+            workflow_dispatch:
+
+          permissions:
+            actions: read
+            contents: read
+            security-events: write
+
+          concurrency:
+            group: codeql-__O__ github.workflow __C__-__O__ github.ref __C__
+            cancel-in-progress: true
+
+          jobs:
+            analyze:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Checkout
+                  uses: actions/checkout@v5
+                  with:
+                    persist-credentials: false
+
+                - name: Initialize CodeQL
+                  uses: github/codeql-action/init@v3
+                  with:
+                    languages: go
+                    build-mode: manual
+
+                - name: Set up Go
+                  uses: actions/setup-go@v5
+                  with:
+                    go-version: 1.26.6
+                    cache-dependency-path: server/go.sum
+
+                - name: Build
+                  working-directory: server
+                  run: go build ./...
+
+                - name: Analyze
+                  uses: github/codeql-action/analyze@v3
+          ''')
+          write(".github/workflows/codeql.yml", codeql)
+
+          dev_release = dedent('''\
+          name: Publish Development Release
+
+          on:
+            push:
+              branches: [release-01.06.01-fixes]
+              paths:
+                - releases/dev-*.json
+            workflow_dispatch:
+
+          permissions:
+            contents: write
+            packages: write
+            attestations: write
+            id-token: write
+
+          concurrency:
+            group: sovereign-conquest-development-release
+            cancel-in-progress: false
+
+          jobs:
+            publish:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Checkout candidate
+                  uses: actions/checkout@v5
+                  with:
+                    fetch-depth: 0
+                    persist-credentials: false
+
+                - name: Set up Go
+                  uses: actions/setup-go@v5
+                  with:
+                    go-version: 1.26.6
+                    cache-dependency-path: server/go.sum
+
+                - name: Read and validate release manifest
+                  id: release
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    manifest="$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep -E '^releases/dev-[0-9]{2}\.[0-9]{2}\.[0-9]{2}\.json$' | head -n 1 || true)"
+                    if [ -z "$manifest" ]; then
+                      manifest="$(find releases -maxdepth 1 -type f -name 'dev-*.json' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)"
+                    fi
+                    test -n "$manifest"
+                    version="$(jq -er '.version' "$manifest")"
+                    channel="$(jq -er '.channel' "$manifest")"
+                    notes_file="$(jq -er '.notes_file' "$manifest")"
+                    [[ "$version" =~ ^[0-9]{2}\.[0-9]{2}\.[0-9]{2}$ ]]
+                    test "$channel" = "dev"
+                    test -f "$notes_file"
+                    test "$(tr -d '\r\n' < VERSION)" = "$version"
+                    grep -q "Version = \"$version\"" server/internal/config/config.go
+                    image="ghcr.io/${GITHUB_REPOSITORY,,}"
+                    short_sha="${GITHUB_SHA:0:12}"
+                    echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
+                    echo "version=$version" >> "$GITHUB_OUTPUT"
+                    echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
+                    echo "tag=dev-$version" >> "$GITHUB_OUTPUT"
+                    echo "image=$image" >> "$GITHUB_OUTPUT"
+                    echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+
+                - name: Validate source
+                  working-directory: server
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    go mod verify
+                    go test -count=1 ./...
+                    go test -race -count=1 ./...
+                    go vet ./...
+                    go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+                    "$(go env GOPATH)/bin/govulncheck" ./...
+
+                - name: Verify browser syntax
+                  run: |
+                    node --check web/static/app.js
+                    node --check web/static/compat-010601.js
+                    node --check web/static/bug.js
+
+                - name: Build local candidate image
+                  run: docker build --pull --tag sovereign-conquest:dev-candidate .
+
+                - name: Scan local candidate
+                  uses: aquasecurity/trivy-action@0.35.0
+                  with:
+                    image-ref: sovereign-conquest:dev-candidate
+                    format: table
+                    exit-code: '1'
+                    ignore-unfixed: true
+                    vuln-type: os,library
+                    severity: CRITICAL,HIGH
+
+                - name: Generate SPDX SBOM
+                  uses: aquasecurity/trivy-action@0.35.0
+                  with:
+                    image-ref: sovereign-conquest:dev-candidate
+                    format: spdx-json
+                    output: sovereign-conquest.spdx.json
+                    exit-code: '0'
+
+                - name: Smoke-test local candidate
+                  shell: bash
+                  env:
+                    VERSION: __O__ steps.release.outputs.version __C__
+                  run: |
+                    set -euo pipefail
+                    network="sc-local-$GITHUB_RUN_ID"
+                    db="sc-local-db-$GITHUB_RUN_ID"
+                    app="sc-local-app-$GITHUB_RUN_ID"
+                    cleanup() {
+                      docker rm -f "$app" "$db" >/dev/null 2>&1 || true
+                      docker network rm "$network" >/dev/null 2>&1 || true
+                    }
+                    trap cleanup EXIT
+                    docker network create "$network" >/dev/null
+                    docker run -d --name "$db" --network "$network" \
+                      -e POSTGRES_USER=sovereign \
+                      -e POSTGRES_PASSWORD=DevelopmentOnlyDatabasePassword \
+                      -e POSTGRES_DB=sovereign_conquest \
+                      postgres:16-alpine >/dev/null
+                    for attempt in $(seq 1 60); do
+                      docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null 2>&1 && break
+                      sleep 1
+                    done
+                    docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null
+                    docker run -d --name "$app" --network "$network" -p 127.0.0.1:18080:8080 \
+                      -e APP_ENV=development \
+                      -e DATABASE_URL='postgres://sovereign:DevelopmentOnlyDatabasePassword@sc-local-db-'"$GITHUB_RUN_ID"':5432/sovereign_conquest?sslmode=disable' \
+                      -e JWT_SECRET='Development-Only-JWT-Secret-For-Release-Validation-2026' \
+                      -e ADMIN_SECRET='Development-Only-Administrator-Secret-For-Validation' \
+                      -e INITIAL_ADMIN_USERNAME=admin \
+                      -e INITIAL_ADMIN_PASSWORD='Development-Only-Admin-Password-2026!' \
+                      -e UNIVERSE_SECTORS=40 \
+                      -e PORT_TICK_SECONDS=0 \
+                      -e PLANET_TICK_SECONDS=0 \
+                      -e EVENT_TICK_SECONDS=0 \
+                      -e PROTECTORATE_TICK_SECONDS=0 \
+                      sovereign-conquest:dev-candidate >/dev/null
+                    for attempt in $(seq 1 90); do
+                      curl -fsS http://127.0.0.1:18080/api/readyz >/dev/null 2>&1 && break
+                      sleep 1
+                    done
+                    curl -fsS http://127.0.0.1:18080/api/readyz >/dev/null || { docker logs "$app"; exit 1; }
+                    curl -fsS http://127.0.0.1:18080/api/livez | jq -e --arg version "$VERSION" '.ok == true and .version == $version' >/dev/null
+                    curl -fsS http://127.0.0.1:18080/api/version | jq -e --arg version "$VERSION" '.version == $version' >/dev/null
+                    curl -fsS http://127.0.0.1:18080/ | grep -F "$VERSION" >/dev/null
+                    admin_json="$(curl -fsS -H 'Content-Type: application/json' -d '{"username":"admin","password":"Development-Only-Admin-Password-2026!"}' http://127.0.0.1:18080/api/login)"
+                    echo "$admin_json" | jq -e '.state.must_change_password == true' >/dev/null
+                    admin_token="$(echo "$admin_json" | jq -er '.token')"
+                    curl -fsS -H "Authorization: Bearer $admin_token" -H 'Content-Type: application/json' \
+                      -d '{"old_password":"Development-Only-Admin-Password-2026!","new_password":"Development-Only-Changed-Password-2026!"}' \
+                      http://127.0.0.1:18080/api/change_password | jq -e '.ok == true' >/dev/null
+                    player="smoke${GITHUB_RUN_ID: -6}"
+                    registration="$(curl -fsS -H 'Content-Type: application/json' \
+                      -d "{\"username\":\"$player\",\"password\":\"Development-Only-Player-Password-2026!\"}" \
+                      http://127.0.0.1:18080/api/register)"
+                    token="$(echo "$registration" | jq -er '.token')"
+                    curl -fsS -H "Authorization: Bearer $token" http://127.0.0.1:18080/api/state | jq -e '.state != null' >/dev/null
+                    curl -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+                      -d '{"type":"SCAN"}' http://127.0.0.1:18080/api/command >/dev/null
+
+                - name: Set up Docker Buildx
+                  uses: docker/setup-buildx-action@v3
+
+                - name: Log in to GHCR
+                  uses: docker/login-action@v3
+                  with:
+                    registry: ghcr.io
+                    username: __O__ github.actor __C__
+                    password: __O__ secrets.GITHUB_TOKEN __C__
+
+                - name: Build and push development image
+                  id: push
+                  uses: docker/build-push-action@v6
+                  with:
+                    context: .
+                    file: ./Dockerfile
+                    push: true
+                    platforms: linux/amd64
+                    tags: |
+                      __O__ steps.release.outputs.image __C__:dev
+                      __O__ steps.release.outputs.image __C__:dev-__O__ steps.release.outputs.version __C__
+                      __O__ steps.release.outputs.image __C__:sha-__O__ steps.release.outputs.short_sha __C__
+                    labels: |
+                      org.opencontainers.image.title=Sovereign Conquest
+                      org.opencontainers.image.version=__O__ steps.release.outputs.version __C__
+                      org.opencontainers.image.revision=__O__ github.sha __C__
+                      org.opencontainers.image.source=__O__ github.server_url __C__/__O__ github.repository __C__
+                    cache-from: type=gha,scope=dev-release
+                    cache-to: type=gha,mode=max,scope=dev-release
+
+                - name: Attest image provenance
+                  uses: actions/attest-build-provenance@v3
+                  with:
+                    subject-name: __O__ steps.release.outputs.image __C__
+                    subject-digest: __O__ steps.push.outputs.digest __C__
+                    push-to-registry: true
+
+                - name: Verify anonymous GHCR pull
+                  shell: bash
+                  env:
+                    IMAGE: __O__ steps.release.outputs.image __C__
+                    VERSION: __O__ steps.release.outputs.version __C__
+                  run: |
+                    set -euo pipefail
+                    docker logout ghcr.io >/dev/null 2>&1 || true
+                    docker image rm "$IMAGE:dev-$VERSION" "$IMAGE:dev" >/dev/null 2>&1 || true
+                    clean_config="$(mktemp -d)"
+                    trap 'rm -rf "$clean_config"' EXIT
+                    DOCKER_CONFIG="$clean_config" docker pull "$IMAGE:dev-$VERSION"
+                    docker image inspect "$IMAGE:dev-$VERSION" >/dev/null
+
+                - name: Scan anonymously pulled image
+                  uses: aquasecurity/trivy-action@0.35.0
+                  with:
+                    image-ref: __O__ steps.release.outputs.image __C__:dev-__O__ steps.release.outputs.version __C__
+                    format: table
+                    exit-code: '1'
+                    ignore-unfixed: true
+                    vuln-type: os,library
+                    severity: CRITICAL,HIGH
+
+                - name: Smoke-test anonymously pulled image
+                  shell: bash
+                  env:
+                    IMAGE: __O__ steps.release.outputs.image __C__
+                    VERSION: __O__ steps.release.outputs.version __C__
+                  run: |
+                    set -euo pipefail
+                    network="sc-public-$GITHUB_RUN_ID"
+                    db="sc-public-db-$GITHUB_RUN_ID"
+                    app="sc-public-app-$GITHUB_RUN_ID"
+                    cleanup() {
+                      docker rm -f "$app" "$db" >/dev/null 2>&1 || true
+                      docker network rm "$network" >/dev/null 2>&1 || true
+                    }
+                    trap cleanup EXIT
+                    docker network create "$network" >/dev/null
+                    docker run -d --name "$db" --network "$network" \
+                      -e POSTGRES_USER=sovereign \
+                      -e POSTGRES_PASSWORD=PublicPullValidationDatabasePassword \
+                      -e POSTGRES_DB=sovereign_conquest \
+                      postgres:16-alpine >/dev/null
+                    for attempt in $(seq 1 60); do
+                      docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null 2>&1 && break
+                      sleep 1
+                    done
+                    docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null
+                    docker run -d --name "$app" --network "$network" -p 127.0.0.1:18081:8080 \
+                      -e APP_ENV=development \
+                      -e DATABASE_URL='postgres://sovereign:PublicPullValidationDatabasePassword@sc-public-db-'"$GITHUB_RUN_ID"':5432/sovereign_conquest?sslmode=disable' \
+                      -e JWT_SECRET='Public-Pull-Validation-JWT-Secret-For-Development-Release' \
+                      -e INITIAL_ADMIN_PASSWORD='Public-Pull-Validation-Admin-Password-2026!' \
+                      -e UNIVERSE_SECTORS=40 \
+                      -e PORT_TICK_SECONDS=0 \
+                      -e PLANET_TICK_SECONDS=0 \
+                      -e EVENT_TICK_SECONDS=0 \
+                      -e PROTECTORATE_TICK_SECONDS=0 \
+                      "$IMAGE:dev-$VERSION" >/dev/null
+                    for attempt in $(seq 1 90); do
+                      curl -fsS http://127.0.0.1:18081/api/readyz >/dev/null 2>&1 && break
+                      sleep 1
+                    done
+                    curl -fsS http://127.0.0.1:18081/api/readyz >/dev/null || { docker logs "$app"; exit 1; }
+                    curl -fsS http://127.0.0.1:18081/api/version | jq -e --arg version "$VERSION" '.version == $version' >/dev/null
+                    curl -fsS http://127.0.0.1:18081/ | grep -F "$VERSION" >/dev/null
+
+                - name: Write release validation report
+                  shell: bash
+                  env:
+                    VERSION: __O__ steps.release.outputs.version __C__
+                    IMAGE: __O__ steps.release.outputs.image __C__
+                    DIGEST: __O__ steps.push.outputs.digest __C__
+                    TAG: __O__ steps.release.outputs.tag __C__
+                  run: |
+                    cat > dev-release-validation.md <<EOF
+                    # Sovereign Conquest Development Release Validation
+
+                    - Version: $VERSION
+                    - Git tag: $TAG
+                    - Source commit: $GITHUB_SHA
+                    - Image: $IMAGE:dev-$VERSION
+                    - Moving channel tag: $IMAGE:dev
+                    - Image digest: $DIGEST
+                    - Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+                    - Unit and regression tests: passed
+                    - Race detector: passed
+                    - Go vet: passed
+                    - govulncheck: zero reachable vulnerabilities
+                    - Local container smoke test: passed
+                    - Trivy high and critical scan: passed
+                    - Anonymous GHCR pull: passed
+                    - Publicly pulled container smoke test: passed
+                    - Provenance attestation: published
+                    EOF
+
+                - name: Upload validation artifacts
+                  uses: actions/upload-artifact@v4
+                  with:
+                    name: sovereign-conquest-dev-__O__ steps.release.outputs.version __C__
+                    path: |
+                      dev-release-validation.md
+                      sovereign-conquest.spdx.json
+                    if-no-files-found: error
+
+                - name: Create or update GitHub prerelease
+                  shell: bash
+                  env:
+                    GH_TOKEN: __O__ github.token __C__
+                    VERSION: __O__ steps.release.outputs.version __C__
+                    TAG: __O__ steps.release.outputs.tag __C__
+                    NOTES_FILE: __O__ steps.release.outputs.notes_file __C__
+                  run: |
+                    set -euo pipefail
+                    title="Sovereign Conquest $VERSION Development Release"
+                    if gh release view "$TAG" >/dev/null 2>&1; then
+                      gh release edit "$TAG" --target "$GITHUB_SHA" --title "$title" --notes-file "$NOTES_FILE" --prerelease
+                      gh release upload "$TAG" dev-release-validation.md sovereign-conquest.spdx.json --clobber
+                    else
+                      gh release create "$TAG" dev-release-validation.md sovereign-conquest.spdx.json \
+                        --target "$GITHUB_SHA" --title "$title" --notes-file "$NOTES_FILE" --prerelease
+                    fi
+                    gh release view "$TAG" --json isPrerelease,tagName,targetCommitish,url
+          ''')
+          write(".github/workflows/dev-release.yml", dev_release)
+
+          env_example = dedent('''\
+          # Copy this file to .env before using docker compose.
+          APP_ENV=development
+          POSTGRES_USER=sovereign
+          POSTGRES_PASSWORD=replace-with-a-long-database-password
+          POSTGRES_DB=sovereign_conquest
+          JWT_SECRET=replace-with-at-least-32-random-characters
+          ADMIN_SECRET=replace-with-at-least-32-random-characters
+          INITIAL_ADMIN_USERNAME=admin
+          INITIAL_ADMIN_PASSWORD=replace-with-at-least-16-random-characters
+          UNIVERSE_SEED=2002
+          UNIVERSE_SECTORS=200
+          TURN_REGEN_SECONDS=120
+          PORT_TICK_SECONDS=60
+          PLANET_TICK_SECONDS=60
+          EVENT_TICK_SECONDS=60
+          PROTECTORATE_TICK_SECONDS=60
+          WEB_PORT=3000
+
+          # Offline-safe vendored build defaults.
+          SC_USE_VENDOR=1
+          SC_BUILD_NETWORK=default
+          SC_BUILD_DNS=
+          GOPROXY=https://proxy.golang.org|direct
+          GOSUMDB=sum.golang.org
+          GOPRIVATE=
+          GONOSUMDB=
+          HTTP_PROXY=
+          HTTPS_PROXY=
+          NO_PROXY=
+          http_proxy=
+          https_proxy=
+          no_proxy=
+          ''')
+          write(".env.example", env_example)
+
+          readme = dedent(f'''\
+          # Sovereign Conquest
+
+          Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current development candidate is **{VERSION}**.
+
+          ## Development release
+
+          The pre-merge development channel publishes the combined API and web image without changing `main` or the stable image tags.
+
+          ```bash
+          docker pull ghcr.io/paulkakell/sovereign-conquest:dev-{VERSION}
+          ```
+
+          The moving development channel is:
+
+          ```bash
+          docker pull ghcr.io/paulkakell/sovereign-conquest:dev
+          ```
+
+          Development images are validated with unit tests, regression tests, the race detector, `go vet`, `govulncheck`, container vulnerability scanning, an SPDX SBOM, a local runtime smoke test, an anonymous GHCR pull, and a second smoke test of the publicly pulled image. They are not stable releases.
+
+          ## Architecture
+
+          - Go API and transactional command engine
+          - PostgreSQL authoritative state
+          - Nginx split web deployment or an all-in-one image served by Go
+          - Server-managed turn, port, planet, event, and Protectorate jobs
+          - Per-player discovery and market intelligence
+          - Planets, corporations, mines, rankings, seasons, messaging, and scheduled events
+
+          Every state-changing game action is validated on the server and applied through database transactions. Client-provided outcomes are never authoritative.
+
+          ## Local split deployment
+
+          ```bash
+          cp .env.example .env
+          # Replace every placeholder secret in .env.
+          docker compose up --build
+          ```
+
+          Open `http://localhost:3000`. The API is bound to `127.0.0.1:8080`. PostgreSQL is available only on the internal Compose network.
+
+          To reset a development universe:
+
+          ```bash
+          docker compose down -v
+          docker compose up --build
+          ```
+
+          ## All-in-one image
+
+          ```bash
+          docker build -t sovereign-conquest:{VERSION} .
+          ```
+
+          The combined image serves the API and web UI on port 8080. It requires PostgreSQL and runtime configuration. Production mode rejects weak secrets and database connections without transport verification.
+
+          ## Required configuration
+
+          - `DATABASE_URL`
+          - `JWT_SECRET`
+          - `INITIAL_ADMIN_PASSWORD`
+
+          Optional administration and game settings are documented in `.env.example` and `docs/DEV_DEPLOYMENT_01.06.02.md`.
+
+          ## Health and observability
+
+          - `GET /api/livez`: process liveness and version
+          - `GET /api/readyz`: database readiness
+          - structured HTTP request logs include method, path, status, response size, duration, and client address
+
+          ## Core commands
+
+          ```text
+          SCAN
+          MOVE <sector>
+          TRADE <BUY|SELL> <ORE|ORGANICS|EQUIPMENT> <quantity>
+          PLANET INFO
+          PLANET COLONIZE [name]
+          PLANET LOAD <commodity> <quantity>
+          PLANET UNLOAD <commodity> <quantity>
+          PLANET UPGRADE CITADEL
+          CORP INFO
+          CORP CREATE <name>
+          CORP JOIN <name>
+          CORP LEAVE
+          CORP SAY <message>
+          CORP DEPOSIT <credits>
+          CORP WITHDRAW <credits>
+          MINE DEPLOY <quantity>
+          MINE SWEEP
+          SHIPYARD
+          SHIPYARD BUY <SCOUT|TRADER|FREIGHTER|INTERCEPTOR>
+          SHIPYARD SELL
+          SHIPYARD UPGRADE <CARGO|TURNS>
+          MARKET [commodity]
+          ROUTE [commodity]
+          EVENTS
+          RANKINGS
+          SEASON
+          ```
+
+          ## Administrator season reset
+
+          The endpoint is enabled only when `ADMIN_SECRET` is configured. It requires both an authenticated administrator bearer token and the separate `X-Admin-Secret` value.
+
+          ```http
+          POST /api/admin/soft_wipe
+          Authorization: Bearer <administrator-token>
+          X-Admin-Secret: <administration-secret>
+          Content-Type: application/json
+
+          {{"season_name":"Season X","reset_corps":false}}
+          ```
+
+          ## Validation commands
+
+          ```bash
+          cd server
+          go mod verify
+          go test -count=1 ./...
+          go test -race -count=1 ./...
+          go vet ./...
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+          "$(go env GOPATH)/bin/govulncheck" ./...
+          cd ..
+          cp .env.example .env
+          docker compose config --quiet
+          docker build --pull -t sovereign-conquest:validation .
+          docker build --pull -t sovereign-conquest-api:validation ./server
+          docker build --pull -t sovereign-conquest-web:validation ./web
+          ```
+
+          ## Release policy
+
+          - `dev-XX.XX.XX` is a GitHub prerelease and immutable GHCR version tag.
+          - `dev` moves to the newest validated development candidate.
+          - Stable version and `main` promotion require a separate review and merge decision.
+          - Release rollback uses a prior immutable image digest or version tag. Database backups are required before destructive operational testing.
+          ''')
+          write("README.md", readme)
+
+          release_notes = dedent(f'''\
+          # Sovereign Conquest {VERSION} Development Release
+
+          This prerelease exists for real-world validation before any merge to `main`.
+
+          ## Additive
+
+          - Add a branch-scoped development release workflow.
+          - Publish immutable `dev-{VERSION}`, moving `dev`, and source-SHA GHCR tags.
+          - Publish build provenance, an SPDX SBOM, and a validation report.
+          - Verify the package with an unauthenticated GHCR pull and a second runtime smoke test.
+          - Add CodeQL analysis for the development branch and `main`.
+
+          ## Fixes
+
+          - Align application, browser, test, and documentation version metadata at {VERSION}.
+          - Move build and validation jobs to Go 1.26.6.
+          - Correct the standalone bug-report page asset paths and displayed version.
+
+          ## Security
+
+          - Upgrade chi to 5.3.1, jwt/v5 to 5.3.1, pgx/v5 to 5.10.0, and x/crypto to 0.55.0.
+          - Regenerate `go.sum` and the committed vendor tree.
+          - Require a clean reachable-code `govulncheck` result before publication.
+          - Fail publication on fixed high or critical container vulnerabilities.
+
+          ## Compatibility
+
+          - No stable tag or `main` branch behavior changes in this publication.
+          - Development deployment still requires PostgreSQL and environment-specific secrets.
+          - Production mode continues to require verified database transport.
+
+          ## Known limitations
+
+          - The season-reset transaction still needs its planned atomic error-handling and durable audit-event rewrite.
+          - Startup DDL remains transitional and should be replaced by numbered migrations.
+          - The development image is published for validation and must not be treated as the stable channel.
+
+          ## References
+
+          - SC-REL-012
+          - SC-SEC-005
+          - SC-DEP-003
+          - Dependency remediation commit: `6fe80acb730006ba834bc322b192ebd776933239`
+          - Original audit base: `7cec9eaf47e835e6555fdd3f8284c7b73b0c20c3`
+          ''')
+          write("docs/RELEASE_NOTES_01.06.02_DEV.md", release_notes)
+
+          deployment = dedent(f'''\
+          # Development Deployment {VERSION}
+
+          ## Pull the immutable image
+
+          ```bash
+          docker pull ghcr.io/paulkakell/sovereign-conquest:dev-{VERSION}
+          ```
+
+          Pin the digest shown in the GitHub prerelease validation report for repeatable testing.
+
+          ## Minimal test stack
+
+          ```yaml
+          services:
+            db:
+              image: postgres:16-alpine
+              environment:
+                POSTGRES_USER: sovereign
+                POSTGRES_PASSWORD: replace-this-password
+                POSTGRES_DB: sovereign_conquest
+              volumes:
+                - sovereign_dev_db:/var/lib/postgresql/data
+
+            game:
+              image: ghcr.io/paulkakell/sovereign-conquest:dev-{VERSION}
+              depends_on:
+                - db
+              ports:
+                - "127.0.0.1:8080:8080"
+              environment:
+                APP_ENV: development
+                DATABASE_URL: postgres://sovereign:replace-this-password@db:5432/sovereign_conquest?sslmode=disable
+                JWT_SECRET: replace-with-at-least-32-random-characters
+                INITIAL_ADMIN_USERNAME: admin
+                INITIAL_ADMIN_PASSWORD: replace-with-at-least-16-random-characters
+                ADMIN_SECRET: replace-with-at-least-32-random-characters
+
+          volumes:
+            sovereign_dev_db:
+          ```
+
+          Open `http://localhost:8080`.
+
+          ## Validation checklist
+
+          1. Confirm `/api/livez` and `/api/readyz` return HTTP 200.
+          2. Confirm `/api/version` reports `{VERSION}`.
+          3. Log in as the seeded administrator and complete the required password change.
+          4. Register a separate player and run `SCAN`, `MOVE`, and a port trade.
+          5. Exercise messaging, attachments, the bug-report page, planet transfers, corporation banking, market filters, and route suggestions.
+          6. Restart both containers and confirm state persists.
+          7. Review structured request logs and database readiness behavior.
+          8. Record defects against the `dev-{VERSION}` tag and image digest.
+
+          ## Production-like testing
+
+          Put TLS termination in front of port 8080, set `TRUST_PROXY_HEADERS=true` only when every request arrives through that trusted proxy, and use a TLS-verified PostgreSQL connection when `APP_ENV=production`.
+
+          ## Rollback
+
+          Stop the candidate, preserve logs, and start the prior immutable image tag or digest against the same database only when schema compatibility has been reviewed. Take and verify a PostgreSQL backup before season resets or destructive tests.
+          ''')
+          write("docs/DEV_DEPLOYMENT_01.06.02.md", deployment)
+
+          security_review = dedent(f'''\
+          # Security Review {VERSION}
+
+          - Authentication: bcrypt cost 12; HS256-only JWT validation; expiration and issued-at checks.
+          - Authorization: season reset requires a current administrator identity and a separate administration secret.
+          - Input controls: request-size limits, endpoint-class throttling, attachment authorization, and server-side command validation.
+          - Transport: complete HTTP timeouts, security headers, proxy-header sanitization, liveness, and database readiness.
+          - Secrets: release workflows use the scoped GitHub token; no repository secret values are written to artifacts or logs.
+          - Dependencies: module graph and vendor tree regenerated; `go mod verify`, tests, race testing, `go vet`, and reachable-code vulnerability analysis passed before commit.
+          - Container: non-root runtime, current patched Go build toolchain, high and critical vulnerability gate, SPDX SBOM, and provenance attestation.
+          - Observability: structured request logging is retained; development validation reports the source commit, image digest, and workflow run.
+
+          Remaining work is tracked in the release notes and validation record. The most material item is a fully atomic and durably audited season-reset transaction.
+          ''')
+          write("docs/SECURITY_REVIEW_01.06.02.md", security_review)
+
+          validation = dedent(f'''\
+          # Validation Record {VERSION}
+
+          ## Completed before release preparation
+
+          - Module graph regenerated and verified.
+          - Unit and regression tests passed.
+          - Race detector passed.
+          - `go vet` passed.
+          - `govulncheck` reported zero reachable vulnerabilities under Go 1.26.6.
+
+          ## Release workflow gates
+
+          The `Publish Development Release` workflow must also pass JavaScript syntax checks, three Docker builds, a local runtime smoke test, a high and critical container scan, SBOM generation, GHCR push, provenance attestation, anonymous GHCR pull, and a smoke test of the publicly pulled image.
+
+          The workflow emits a validation report and SBOM as both workflow artifacts and GitHub prerelease assets. A failed gate prevents prerelease creation.
+          ''')
+          write("docs/VALIDATION_01.06.02.md", validation)
+
+          commit_notes = dedent(f'''\
+          # Commit Notes {VERSION}
+
+          ```text
+          release(dev): publish Sovereign Conquest {VERSION} candidate
+
+          - bump application and browser metadata to {VERSION}
+          - update Go build and validation toolchain to 1.26.6
+          - refresh chi, jwt/v5, pgx/v5, x/crypto, go.sum, and vendor
+          - add CodeQL, govulncheck, container scanning, SBOM, and provenance gates
+          - add GHCR dev, dev-{VERSION}, and source-SHA tags
+          - verify unauthenticated GHCR pull and runtime behavior before prerelease creation
+          - update README, changelog, deployment guide, security review, and release notes
+
+          Breaking behavior:
+          - none for stable tags or main
+
+          Rollback:
+          - redeploy the prior immutable image digest or version tag
+          - retain the database and restore from a verified backup only when required
+
+          References:
+          - SC-REL-012
+          - SC-SEC-005
+          - SC-DEP-003
+          ```
+          ''')
+          write("docs/COMMIT_NOTES_01.06.02.md", commit_notes)
+
+          changelog_path = Path("CHANGELOG.md")
+          changelog = changelog_path.read_text()
+          if not changelog.startswith("# Changelog\n"):
+              raise SystemExit("CHANGELOG.md header not found")
+          if f"## {VERSION} " not in changelog:
+              entry = dedent(f'''\
+
+              ## {VERSION} (2026-08-13)
+
+              Additive
+              - Add a branch-scoped development release pipeline with immutable and moving GHCR development tags.
+              - Add CodeQL, provenance attestation, SPDX SBOM generation, anonymous package-pull verification, and runtime smoke tests.
+              - Add deployment, validation, security-review, release-note, and commit-note documentation.
+
+              Fix
+              - Align application, browser, test, and documentation version metadata at {VERSION}.
+              - Correct the standalone bug-report page paths and version.
+              - Move compiled images and security validation to Go 1.26.6.
+
+              Security
+              - Upgrade chi to 5.3.1, jwt/v5 to 5.3.1, pgx/v5 to 5.10.0, and x/crypto to 0.55.0.
+              - Regenerate and verify `go.sum` and `server/vendor`.
+              - Require clean reachable-code and container vulnerability gates before development publication.
+
+              Compatibility
+              - Additive for the development channel; no stable tag or `main` publication occurs.
+
+              Known limitations
+              - Season-reset atomicity and durable audit insertion remain planned follow-up work.
+              - Startup DDL remains transitional pending numbered migrations.
+
+              Refs
+              - SC-REL-012, SC-SEC-005, SC-DEP-003
+              - Dependency commit: 6fe80acb730006ba834bc322b192ebd776933239
+              - Audit base: 7cec9eaf47e835e6555fdd3f8284c7b73b0c20c3
+              ''')
+              changelog_path.write_text("# Changelog\n" + entry + changelog[len("# Changelog\n"):])
+
+          generated_workflows = [
+              ".github/workflows/ci.yml",
+              ".github/workflows/build-validation.yml",
+              ".github/workflows/codeql.yml",
+              ".github/workflows/dev-release.yml",
+          ]
+          expression_open = "$" + "{{"
+          expression_close = "}" + "}"
+          for workflow in generated_workflows:
+              text = read(workflow)
+              write(workflow, text.replace("__O__", expression_open).replace("__C__", expression_close))
+          PY
+
+      - name: Validate source and dependency graph
+        working-directory: server
+        shell: bash
+        run: |
+          set -euo pipefail
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then
+            printf 'Go files require gofmt:\n%s\n' "$files" >&2
+            exit 1
+          fi
+          go mod verify
+          go test -count=1 ./...
+          go test -race -count=1 ./...
+          go vet ./...
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
+      - name: Validate browser syntax and Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check web/static/app.js
+          node --check web/static/compat-010601.js
+          node --check web/static/bug.js
+          cp .env.example .env
+          docker compose config --quiet
+
+      - name: Validate all container builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull --tag sovereign-conquest:prepare .
+          docker build --pull --tag sovereign-conquest-api:prepare ./server
+          docker build --pull --tag sovereign-conquest-web:prepare ./web
+
+      - name: Commit validated development release preparation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .env
+          git rm -- .github/workflows/prepare-dev-release-010602.yml
+          git add -- \
+            VERSION \
+            CHANGELOG.md \
+            README.md \
+            .env.example \
+            Dockerfile \
+            server/Dockerfile \
+            server/internal/config/config.go \
+            server/internal/build/root_dockerfile_test.go \
+            server/internal/build/web_contract_test.go \
+            web/static/index.html \
+            web/static/bug.html \
+            .github/workflows/ci.yml \
+            .github/workflows/build-validation.yml \
+            .github/workflows/codeql.yml \
+            .github/workflows/dev-release.yml \
+            docs/RELEASE_NOTES_01.06.02_DEV.md \
+            docs/DEV_DEPLOYMENT_01.06.02.md \
+            docs/SECURITY_REVIEW_01.06.02.md \
+            docs/VALIDATION_01.06.02.md \
+            docs/COMMIT_NOTES_01.06.02.md
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'release(dev): prepare 01.06.02 candidate'
+          git push origin HEAD:release-01.06.01-fixes
