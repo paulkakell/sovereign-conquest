@@ -27,9 +27,9 @@ func TestCompatibilityAssetsAreShipped(t *testing.T) {
 	shell := string(index)
 	client := string(compat)
 	for _, required := range []string{
-		"/compat-010601.js?v=01.06.01",
-		"/app.js?v=01.06.01",
-		"/style.css?v=01.06.01",
+		"/compat-010601.js?v=01.06.02",
+		"/app.js?v=01.06.02",
+		"/style.css?v=01.06.02",
 		"/bug.html",
 	} {
 		if !strings.Contains(shell, required) {

@@ -22,7 +22,7 @@ func TestRootDockerfileBuildsCombinedImage(t *testing.T) {
 
 	dockerfile := string(bs)
 	for _, want := range []string{
-		"FROM golang:1.26.5-alpine3.24 AS build",
+		"FROM golang:1.26.6-alpine3.24 AS build",
 		"COPY server/ /src/server/",
 		"WORKDIR /src/server",
 		"./scripts/build_api.sh",

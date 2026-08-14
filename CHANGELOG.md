@@ -1,5 +1,34 @@
 # Changelog
 
+## 01.06.02 (2026-08-13)
+
+Additive
+- Add a branch-scoped development release pipeline with immutable and moving GHCR development tags.
+- Add CodeQL, provenance attestation, SPDX SBOM generation, anonymous package-pull verification, and runtime smoke tests.
+- Add deployment, validation, security-review, release-note, and commit-note documentation.
+
+Fix
+- Align application, browser, test, and documentation version metadata at 01.06.02.
+- Correct the standalone bug-report page paths and version.
+- Move compiled images and security validation to Go 1.26.6.
+
+Security
+- Upgrade chi to 5.3.1, jwt/v5 to 5.3.1, pgx/v5 to 5.10.0, and x/crypto to 0.55.0.
+- Regenerate and verify `go.sum` and `server/vendor`.
+- Require clean reachable-code and container vulnerability gates before development publication.
+
+Compatibility
+- Additive for the development channel; no stable tag or `main` publication occurs.
+
+Known limitations
+- Season-reset atomicity and durable audit insertion remain planned follow-up work.
+- Startup DDL remains transitional pending numbered migrations.
+
+Refs
+- SC-REL-012, SC-SEC-005, SC-DEP-003
+- Dependency commit: 6fe80acb730006ba834bc322b192ebd776933239
+- Audit base: 7cec9eaf47e835e6555fdd3f8284c7b73b0c20c3
+
 ## 01.06.01 (2026-08-13)
 
 Fix
