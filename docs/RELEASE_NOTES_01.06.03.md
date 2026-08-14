@@ -1,8 +1,8 @@
-# Sovereign Conquest 01.06.03 Release Notes
+# Sovereign Conquest v01.06.03 Release Notes
 
 ## Summary
 
-Version 01.06.03 changes the default Docker Compose deployment from local image builds to the combined GHCR image at `ghcr.io/paulkakell/sovereign-conquest:main`.
+Version 01.06.03 changes the default Docker Compose deployment from local image builds to the combined GHCR image at `ghcr.io/paulkakell/sovereign-conquest:main`. It also completes repository consolidation so `main` is the only long-lived branch.
 
 ## Fixes
 
@@ -11,7 +11,7 @@ Version 01.06.03 changes the default Docker Compose deployment from local image 
 - Preserve browser port 3000 and direct API port 8080 as loopback-only mappings to the combined container.
 - Add an always-pull default through `SC_PULL_POLICY` while permitting an operator override.
 - Remove obsolete build-time variables from `.env.example`.
-- Align application and active browser version badges at v01.06.03.
+- Align application, documentation, and active browser version badges at v01.06.03.
 
 ## Security and reliability
 
@@ -19,6 +19,14 @@ Version 01.06.03 changes the default Docker Compose deployment from local image 
 - Keep PostgreSQL on the internal Compose network without a host-published database port.
 - Keep application ports bound to `127.0.0.1` by default.
 - Permit immutable image tags or digests through `SC_IMAGE` for controlled deployments.
+- Exclude unvalidated Go 1.27 release-candidate updates from this release.
+
+## Repository maintenance
+
+- Retire the obsolete branch-scoped 01.06.02 development-release workflow and manifest.
+- Close automated dependency proposals that were not selected for v01.06.03.
+- Remove merged, superseded, prerelease, and obsolete branches after promotion.
+- Preserve historical release records under `CHANGELOG.md` and `docs/`.
 
 ## Compatibility
 
@@ -49,3 +57,4 @@ Restore the previous Compose file and set `SC_IMAGE` to the prior verified image
 
 - SC-DEPLOY-003
 - SC-CI-012
+- SC-REPO-001
