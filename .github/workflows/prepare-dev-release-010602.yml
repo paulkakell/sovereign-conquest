@@ -119,11 +119,13 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
           "$(go env GOPATH)/bin/govulncheck" ./...
 
-      - name: Verify browser syntax
+      - name: Verify browser and smoke-script syntax
+        shell: bash
         run: |
           node --check web/static/app.js
           node --check web/static/compat-010601.js
           node --check web/static/bug.js
+          bash -n scripts/release-smoke.sh
 
       - name: Build local candidate image
         run: docker build --pull --tag sovereign-conquest:dev-candidate .
@@ -149,58 +151,15 @@ jobs:
       - name: Smoke-test local candidate
         shell: bash
         env:
-          VERSION: ${{ steps.release.outputs.version }}
-        run: |
-          set -euo pipefail
-          network="sc-local-$GITHUB_RUN_ID"
-          db="sc-local-db-$GITHUB_RUN_ID"
-          app="sc-local-app-$GITHUB_RUN_ID"
-          cleanup() {
-            docker rm -f "$app" "$db" >/dev/null 2>&1 || true
-            docker network rm "$network" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
-          docker network create "$network" >/dev/null
-          docker run -d --name "$db" --network "$network" \
-            -e POSTGRES_USER=sovereign \
-            -e POSTGRES_PASSWORD=DevelopmentOnlyDatabasePassword \
-            -e POSTGRES_DB=sovereign_conquest \
-            postgres:16-alpine >/dev/null
-          for attempt in $(seq 1 60); do
-            docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null 2>&1 && break
-            sleep 1
-          done
-          docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null
-          database_url="postgres://sovereign:DevelopmentOnlyDatabasePassword@$db:5432/sovereign_conquest?sslmode=disable"
-          docker run -d --name "$app" --network "$network" -p 127.0.0.1:18080:8080 \
-            -e APP_ENV=development \
-            -e "DATABASE_URL=$database_url" \
-            -e JWT_SECRET='Development-Only-JWT-Secret-For-Release-Validation-2026' \
-            -e ADMIN_SECRET='Development-Only-Administrator-Secret-For-Validation' \
-            -e INITIAL_ADMIN_USERNAME=admin \
-            -e INITIAL_ADMIN_PASSWORD='Development-Only-Admin-Password-2026!' \
-            -e UNIVERSE_SECTORS=40 \
-            -e PORT_TICK_SECONDS=0 \
-            -e PLANET_TICK_SECONDS=0 \
-            -e EVENT_TICK_SECONDS=0 \
-            -e PROTECTORATE_TICK_SECONDS=0 \
-            sovereign-conquest:dev-candidate >/dev/null
-          for attempt in $(seq 1 90); do
-            curl -fsS http://127.0.0.1:18080/api/readyz >/dev/null 2>&1 && break
-            sleep 1
-          done
-          curl -fsS http://127.0.0.1:18080/api/readyz >/dev/null || { docker logs "$app"; exit 1; }
-          curl -fsS http://127.0.0.1:18080/api/livez | jq -e --arg version "$VERSION" '.ok == true and .version == $version' >/dev/null
-          curl -fsS http://127.0.0.1:18080/api/version | jq -e --arg version "$VERSION" '.version == $version' >/dev/null
-          curl -fsS http://127.0.0.1:18080/ | grep -F "$VERSION" >/dev/null
-          player="smoke${GITHUB_RUN_ID: -6}"
-          registration="$(curl -fsS -H 'Content-Type: application/json' \
-            -d "{\"username\":\"$player\",\"password\":\"Development-Only-Player-Password-2026!\"}" \
-            http://127.0.0.1:18080/api/register)"
-          token="$(echo "$registration" | jq -er '.token')"
-          curl -fsS -H "Authorization: Bearer $token" http://127.0.0.1:18080/api/state | jq -e '.state != null' >/dev/null
-          curl -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
-            -d '{"type":"SCAN"}' http://127.0.0.1:18080/api/command >/dev/null
+          SC_IMAGE: sovereign-conquest:dev-candidate
+          SC_EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+          SC_HOST_PORT: '18080'
+          SC_NAME_PREFIX: local
+          SC_DB_PASSWORD: DevelopmentOnlyDatabasePassword
+          SC_JWT_SECRET: Development-Only-JWT-Secret-For-Release-Validation-2026
+          SC_ADMIN_SECRET: Development-Only-Administrator-Secret-For-Validation
+          SC_INITIAL_ADMIN_PASSWORD: Development-Only-Admin-Password-2026!
+        run: bash scripts/release-smoke.sh
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -266,56 +225,14 @@ jobs:
       - name: Smoke-test anonymously pulled image
         shell: bash
         env:
-          IMAGE: ${{ steps.release.outputs.image }}
-          VERSION: ${{ steps.release.outputs.version }}
-        run: |
-          set -euo pipefail
-          network="sc-public-$GITHUB_RUN_ID"
-          db="sc-public-db-$GITHUB_RUN_ID"
-          app="sc-public-app-$GITHUB_RUN_ID"
-          cleanup() {
-            docker rm -f "$app" "$db" >/dev/null 2>&1 || true
-            docker network rm "$network" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
-          docker network create "$network" >/dev/null
-          docker run -d --name "$db" --network "$network" \
-            -e POSTGRES_USER=sovereign \
-            -e POSTGRES_PASSWORD=PublicPullValidationDatabasePassword \
-            -e POSTGRES_DB=sovereign_conquest \
-            postgres:16-alpine >/dev/null
-          for attempt in $(seq 1 60); do
-            docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null 2>&1 && break
-            sleep 1
-          done
-          docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null
-          database_url="postgres://sovereign:PublicPullValidationDatabasePassword@$db:5432/sovereign_conquest?sslmode=disable"
-          docker run -d --name "$app" --network "$network" -p 127.0.0.1:18081:8080 \
-            -e APP_ENV=development \
-            -e "DATABASE_URL=$database_url" \
-            -e JWT_SECRET='Public-Pull-Validation-JWT-Secret-For-Development-Release' \
-            -e INITIAL_ADMIN_PASSWORD='Public-Pull-Validation-Admin-Password-2026!' \
-            -e UNIVERSE_SECTORS=40 \
-            -e PORT_TICK_SECONDS=0 \
-            -e PLANET_TICK_SECONDS=0 \
-            -e EVENT_TICK_SECONDS=0 \
-            -e PROTECTORATE_TICK_SECONDS=0 \
-            "$IMAGE:dev-$VERSION" >/dev/null
-          for attempt in $(seq 1 90); do
-            curl -fsS http://127.0.0.1:18081/api/readyz >/dev/null 2>&1 && break
-            sleep 1
-          done
-          curl -fsS http://127.0.0.1:18081/api/readyz >/dev/null || { docker logs "$app"; exit 1; }
-          curl -fsS http://127.0.0.1:18081/api/version | jq -e --arg version "$VERSION" '.version == $version' >/dev/null
-          curl -fsS http://127.0.0.1:18081/ | grep -F "$VERSION" >/dev/null
-          player="public${GITHUB_RUN_ID: -6}"
-          registration="$(curl -fsS -H 'Content-Type: application/json' \
-            -d "{\"username\":\"$player\",\"password\":\"Public-Pull-Player-Password-2026!\"}" \
-            http://127.0.0.1:18081/api/register)"
-          token="$(echo "$registration" | jq -er '.token')"
-          curl -fsS -H "Authorization: Bearer $token" http://127.0.0.1:18081/api/state | jq -e '.state != null' >/dev/null
-          curl -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
-            -d '{"type":"SCAN"}' http://127.0.0.1:18081/api/command >/dev/null
+          SC_IMAGE: ${{ steps.release.outputs.image }}:dev-${{ steps.release.outputs.version }}
+          SC_EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+          SC_HOST_PORT: '18081'
+          SC_NAME_PREFIX: public
+          SC_DB_PASSWORD: PublicPullValidationDatabasePassword
+          SC_JWT_SECRET: Public-Pull-Validation-JWT-Secret-For-Development-Release
+          SC_INITIAL_ADMIN_PASSWORD: Public-Pull-Validation-Admin-Password-2026!
+        run: bash scripts/release-smoke.sh
 
       - name: Write release validation report
         shell: bash
