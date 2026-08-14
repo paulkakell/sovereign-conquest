@@ -2,7 +2,7 @@
 
 ## Required automated gates
 
-The branch workflows must complete successfully before promotion:
+The release workflows must complete successfully before promotion:
 
 - JavaScript syntax checks
 - Go formatting verification
@@ -32,9 +32,24 @@ The branch workflows must complete successfully before promotion:
 
 CI copies `.env.example` to `.env` and runs `docker compose config --quiet`. Build Validation also confirms that the rendered image list contains `ghcr.io/paulkakell/sovereign-conquest:main`.
 
+## Documentation and version validation
+
+- Root `VERSION`, backend `config.Version`, active web badges, cache-busting values, README, release notes, and current configuration guidance identify 01.06.03 or v01.06.03 as appropriate.
+- Historical release documents retain their original version numbers.
+- The obsolete 01.06.02 branch-scoped development-release workflow and manifest are removed.
+
 ## Dependency and database status
 
-No dependencies or database migrations change in this release. Lock files, vendor contents, and schema rollback procedures therefore require no regeneration.
+Application dependencies and database migrations do not change in this release. Automated dependency proposals were reviewed separately; prerelease compiler branches and unrelated major updates were not folded into v01.06.03.
+
+## Branch consolidation validation
+
+After the release merge:
+
+- all open automated dependency pull requests not selected for this release are closed;
+- merged, superseded, prerelease, and obsolete branches are deleted;
+- a branch listing returns `main` as the only remaining branch;
+- the one-time cleanup workflow is removed after successful execution.
 
 ## Performance
 
