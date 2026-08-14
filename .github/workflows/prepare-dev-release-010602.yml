@@ -266,7 +266,7 @@ jobs:
           EOF
 
       - name: Upload validation artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sovereign-conquest-dev-${{ steps.release.outputs.version }}
           path: |
