@@ -1,6 +1,6 @@
 # Sovereign Conquest
 
-Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current development candidate is **01.06.02**.
+Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current development candidate is **v01.06.02**.
 
 ## Development image
 
@@ -52,7 +52,7 @@ The combined image serves the API and web UI on port 8080. Production mode rejec
 
 - `GET /api/livez`: process liveness and version
 - `GET /api/readyz`: database readiness
-- structured request logs include method, path, status, response size, duration, and client address
+- structured request logs include method, path, status, response size, and duration; client network addresses are not persisted
 
 ## Commands
 
