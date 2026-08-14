@@ -4,6 +4,9 @@
 - Season reset requires a current administrator identity plus a separate administration secret.
 - Request limits, endpoint throttles, attachment authorization, and server-side command validation remain enabled.
 - HTTP timeouts, security headers, proxy sanitization, liveness, readiness, and structured request logs remain enabled.
+- Trusted proxy addresses are used transiently for rate limiting and proxy normalization but are excluded from persistent request logs.
+- Regression coverage verifies that header-derived client addresses do not appear in structured log output.
+- GitHub Code Scanning alert 1 for clear-text logging of sensitive information was remediated on PR 1.
 - The module graph and vendor tree were regenerated and verified.
 - Unit tests, regression tests, race testing, `go vet`, and reachable-code vulnerability analysis passed before preparation.
 - The release gate adds non-root container validation, high and critical vulnerability scanning, an SPDX SBOM, and provenance attestation.
