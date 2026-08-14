@@ -67,7 +67,7 @@ jobs:
           set -euo pipefail
           git rm -- .github/workflows/upgrade-dependencies-010602.yml
           git add -- server/go.mod server/go.sum server/vendor
-          git diff --cached --check
+          git diff --cached --check -- server/go.mod server/go.sum
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'build(deps): refresh Go dependencies for 01.06.02'
