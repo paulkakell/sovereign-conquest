@@ -1,16 +1,38 @@
 # Sovereign Conquest Configuration
 
-This guide describes the configuration contract for version 01.06.01.
+This guide describes the configuration contract for version 01.06.03.
 
 ## Deployment profiles
 
-`docker-compose.yml` is a local-development profile. It uses local database transport and publishes development ports. Do not expose it directly to the public Internet.
+`docker-compose.yml` is a local-development profile. It pulls the combined API and web image from GHCR and does not contain Docker build definitions. PostgreSQL remains a separate service on the internal Compose network.
 
-The repository-root image is the preferred production artifact. It serves the API and bundled web client on port 8080. Production deployments must provide their own PostgreSQL service, TLS termination, secrets, backup policy, and persistent database storage.
+The default image is `ghcr.io/paulkakell/sovereign-conquest:main`. The `main` tag is moving. Pin `SC_IMAGE` to an immutable version tag or digest for controlled deployments.
+
+The Compose profile uses local database transport and publishes loopback-only development ports. Do not expose it directly to the public Internet.
+
+## Compose image settings
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `SC_IMAGE` | `ghcr.io/paulkakell/sovereign-conquest:main` | Combined API and web image |
+| `SC_PULL_POLICY` | `always` | Compose image refresh policy |
+| `WEB_PORT` | `3000` | Browser-facing host port |
+| `API_PORT` | `8080` | Compatibility host port for direct API access |
+
+Both host ports reach port 8080 in the same combined container. The API remains available below `/api` on either port.
+
+Update a Compose deployment with:
+
+```bash
+docker compose pull
+docker compose up -d --remove-orphans
+```
+
+The old standalone `web` service no longer exists. Operational commands should target the `api` service.
 
 ## Required production settings
 
-Set `APP_ENV=production` to enable startup validation.
+Set `APP_ENV=production` to enable startup validation. The repository Compose profile deliberately defaults to `development` because its internal PostgreSQL connection uses `sslmode=disable`.
 
 | Setting | Purpose | Production requirement |
 |---|---|---|
@@ -20,7 +42,7 @@ Set `APP_ENV=production` to enable startup validation.
 | `INITIAL_ADMIN_PASSWORD` | Initial bootstrap value | At least 16 characters and unique to this deployment |
 | `ADMIN_SECRET` | Secondary authorization for season reset | Optional; at least 32 characters when enabled |
 | `HTTP_ADDR` | API bind address | Defaults to `:8080` |
-| `WEB_ROOT` | Static web directory | Root image defaults to `/app/web` |
+| `WEB_ROOT` | Static web directory | Combined image uses `/app/web` |
 
 The service refuses production startup when these requirements are not met.
 
@@ -29,8 +51,6 @@ The service refuses production startup when these requirements are not met.
 `TRUST_PROXY_HEADERS=false` is the safe default. The API removes incoming forwarding headers before they reach the router.
 
 Set `TRUST_PROXY_HEADERS=true` only when every request reaches the API through a controlled reverse proxy that replaces `X-Real-IP` or `CF-Connecting-IP`. Do not enable it when clients can connect directly to the API port.
-
-The split Nginx configuration replaces `X-Real-IP` and clears `X-Forwarded-For` before proxying API requests.
 
 ## Game and scheduler settings
 
@@ -54,9 +74,9 @@ Port, planet, and event jobs use PostgreSQL advisory locks to prevent duplicate 
 
 Use `/api/readyz` for load-balancer readiness. Use `/api/livez` for container liveness.
 
-## Build settings
+## Manual source-build settings
 
-The committed vendor tree remains the default build source.
+Compose no longer consumes build arguments. Manual `docker build` operations continue to support the committed vendor tree and these settings:
 
 | Setting | Purpose |
 |---|---|
@@ -66,6 +86,7 @@ The committed vendor tree remains the default build source.
 | `GOPRIVATE` | Private module patterns |
 | `GONOSUMDB` | Checksum exclusions for private modules |
 | `SC_BUILD_DNS` | Optional build-time resolver override |
-| `SC_BUILD_NETWORK` | Compose build network mode |
 
-Version 01.06.01 does not update the module graph because the repository connector could not safely regenerate `go.sum` and `vendor`. Run the dependency procedure in `docs/VALIDATION_01.06.01.md` from a trusted checkout before declaring dependency remediation complete.
+## Rollback
+
+Restore the prior Compose file and set `SC_IMAGE` to the previously verified image digest. The Compose change does not alter the PostgreSQL schema or stored game data, so database rollback is not required for this deployment change.

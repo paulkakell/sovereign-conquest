@@ -1,49 +1,69 @@
 # Sovereign Conquest
 
-Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current development candidate is **v01.06.02**.
+Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current release candidate is **v01.06.03**.
 
-## Development image
+## GHCR image
+
+The repository publishes one combined API and web image:
 
 ```bash
-docker pull ghcr.io/paulkakell/sovereign-conquest:dev-01.06.02
-docker pull ghcr.io/paulkakell/sovereign-conquest:dev
+docker pull ghcr.io/paulkakell/sovereign-conquest:main
 ```
 
-`dev-01.06.02` is immutable. `dev` moves to the newest validated development candidate. Neither tag is the stable channel.
-
-Development publication requires unit and regression tests, race detection, `go vet`, `govulncheck`, container scanning, an SPDX SBOM, provenance attestation, a local runtime smoke test, an anonymous GHCR pull, and a second smoke test of the publicly pulled image.
+The `main` tag moves after a validated push to the default branch. For reproducible production deployments, set `SC_IMAGE` to an immutable version tag or image digest instead of the moving tag.
 
 ## Architecture
 
-- Go API and transactional command engine
+- Combined Go API and bundled web client image
 - PostgreSQL authoritative state
-- Nginx split deployment or an all-in-one image served by Go
+- Transactional command engine
 - Server-managed turn, port, planet, event, and Protectorate jobs
 - Per-player discovery, market intelligence, planets, corporations, mines, seasons, messaging, and events
 
 Every state-changing game action is validated on the server and applied through database transactions. Client-provided outcomes are never authoritative.
 
-## Local split deployment
+## Docker Compose deployment
+
+`docker-compose.yml` pulls the combined image from GHCR. It does not build the API or web containers locally.
 
 ```bash
 cp .env.example .env
 # Replace every placeholder secret in .env.
-docker compose up --build
+docker compose pull
+docker compose up -d
 ```
 
-Open `http://localhost:3000`. The API is bound to `127.0.0.1:8080`. PostgreSQL remains on the internal Compose network.
+Open `http://localhost:3000`. The same combined application is also available on `http://localhost:8080`, preserving the prior direct API port. PostgreSQL remains on the internal Compose network.
 
-To reset a development universe:
+Override the image without editing Compose:
+
+```bash
+SC_IMAGE=ghcr.io/paulkakell/sovereign-conquest@sha256:<digest> docker compose up -d
+```
+
+Update an existing deployment:
+
+```bash
+docker compose pull
+docker compose up -d --remove-orphans
+```
+
+Reset a development universe:
 
 ```bash
 docker compose down -v
-docker compose up --build
+docker compose pull
+docker compose up -d
 ```
 
-## All-in-one local build
+The former standalone `web` service has been removed. Use `docker compose logs api` for the combined service. `docker compose build` is no longer part of the Compose deployment path.
+
+## Manual source build
+
+A local source build remains available outside Compose:
 
 ```bash
-docker build -t sovereign-conquest:01.06.02 .
+docker build -t sovereign-conquest:01.06.03 .
 ```
 
 The combined image serves the API and web UI on port 8080. Production mode rejects weak secrets and database connections without transport verification.
