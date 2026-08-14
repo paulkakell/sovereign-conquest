@@ -25,6 +25,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Verify smoke-test syntax
+        run: bash -n scripts/release-smoke.sh
+
       - name: Build combined image
         run: docker build --pull --tag sovereign-conquest:validation .
 
@@ -33,6 +36,19 @@ jobs:
 
       - name: Build web image
         run: docker build --pull --tag sovereign-conquest-web:validation ./web
+
+      - name: Run fresh-database integration test
+        shell: bash
+        env:
+          SC_IMAGE: sovereign-conquest:validation
+          SC_EXPECTED_VERSION: '01.06.02'
+          SC_HOST_PORT: '18082'
+          SC_NAME_PREFIX: validation
+          SC_DB_PASSWORD: BuildValidationDatabasePassword
+          SC_JWT_SECRET: Build-Validation-JWT-Secret-For-Fresh-Database-Testing
+          SC_ADMIN_SECRET: Build-Validation-Administrator-Secret-For-Testing
+          SC_INITIAL_ADMIN_PASSWORD: Build-Validation-Admin-Password-2026!
+        run: bash scripts/release-smoke.sh
 
   codeql:
     runs-on: ubuntu-latest
