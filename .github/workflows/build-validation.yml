@@ -4,7 +4,10 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, release-01.06.01-fixes]
+    branches:
+      - main
+      - 'release-*'
+      - 'compose-*'
   workflow_dispatch:
 
 permissions:
@@ -28,6 +31,13 @@ jobs:
       - name: Verify smoke-test syntax
         run: bash -n scripts/release-smoke.sh
 
+      - name: Validate GHCR Compose contract
+        shell: bash
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          docker compose config --images | grep -Fxq 'ghcr.io/paulkakell/sovereign-conquest:main'
+
       - name: Build combined image
         run: docker build --pull --tag sovereign-conquest:validation .
 
@@ -41,7 +51,7 @@ jobs:
         shell: bash
         env:
           SC_IMAGE: sovereign-conquest:validation
-          SC_EXPECTED_VERSION: '01.06.02'
+          SC_EXPECTED_VERSION: '01.06.03'
           SC_HOST_PORT: '18082'
           SC_NAME_PREFIX: validation
           SC_DB_PASSWORD: BuildValidationDatabasePassword
