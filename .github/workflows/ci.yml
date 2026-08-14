@@ -61,6 +61,13 @@ jobs:
         working-directory: server
         run: go vet ./...
 
+      - name: Run Go security static analysis
+        working-directory: server
+        shell: bash
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+          "$(go env GOPATH)/bin/gosec" -quiet ./...
+
       - name: Run reachable-code vulnerability analysis
         working-directory: server
         shell: bash
