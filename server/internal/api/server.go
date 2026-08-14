@@ -857,7 +857,7 @@ func (s *Server) handleBugReport(w http.ResponseWriter, r *http.Request) {
 
 	// Only multipart is supported here (attachments).
 	r.Body = http.MaxBytesReader(w, r.Body, maxTotalUploadBytes)
-	if err := r.ParseMultipartForm(maxMultipartMemory); err != nil {
+	if err := r.ParseMultipartForm(maxMultipartMemory); err != nil { // #nosec G120 -- MaxBytesReader immediately above caps the complete request body.
 		var mbe *http.MaxBytesError
 		if errors.As(err, &mbe) {
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("upload too large (max %d bytes)", maxTotalUploadBytes))
