@@ -103,9 +103,9 @@ func EnsureProtectorateSectors(ctx context.Context, pool *pgxpool.Pool, seed int
 	// Fighters: if missing/zero, seed into range.
 	_, err = tx.Exec(ctx, `
 		UPDATE sectors
-		SET protectorate_fighters = $2
+		SET protectorate_fighters = $1
 		WHERE is_protectorate=true AND protectorate_fighters <= 0
-	`, protectorateMinFighters, protectorateMinFighters)
+	`, protectorateMinFighters)
 	if err != nil {
 		return err
 	}
