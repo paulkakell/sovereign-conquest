@@ -1,0 +1,78 @@
+name: Build Validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, release-01.06.01-fixes]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Verify smoke-test syntax
+        run: bash -n scripts/release-smoke.sh
+
+      - name: Build combined image
+        run: docker build --pull --tag sovereign-conquest:validation .
+
+      - name: Build API image
+        run: docker build --pull --tag sovereign-conquest-api:validation ./server
+
+      - name: Build web image
+        run: docker build --pull --tag sovereign-conquest-web:validation ./web
+
+      - name: Run fresh-database integration test
+        shell: bash
+        env:
+          SC_IMAGE: sovereign-conquest:validation
+          SC_EXPECTED_VERSION: '01.06.02'
+          SC_HOST_PORT: '18082'
+          SC_NAME_PREFIX: validation
+          SC_DB_PASSWORD: BuildValidationDatabasePassword
+          SC_JWT_SECRET: Build-Validation-JWT-Secret-For-Fresh-Database-Testing
+          SC_ADMIN_SECRET: Build-Validation-Administrator-Secret-For-Testing
+          SC_INITIAL_ADMIN_PASSWORD: Build-Validation-Admin-Password-2026!
+        run: bash scripts/release-smoke.sh
+
+  codeql:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.6
+          cache-dependency-path: server/go.sum
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          build-mode: manual
+
+      - name: Build
+        working-directory: server
+        run: go build ./...
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4

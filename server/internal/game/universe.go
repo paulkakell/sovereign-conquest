@@ -27,7 +27,7 @@ func EnsureUniverse(ctx context.Context, pool *pgxpool.Pool, cfg UniverseConfig)
 	if cfg.Sectors < 20 {
 		cfg.Sectors = 20
 	}
-	rng := rand.New(rand.NewSource(cfg.Seed))
+	rng := rand.New(rand.NewSource(cfg.Seed)) // #nosec G404 -- deterministic generation from the configured seed is a game requirement, not a security boundary.
 
 	// Insert sectors
 	batch := &pgx.Batch{}

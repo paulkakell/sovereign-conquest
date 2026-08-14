@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, release-01.06.01-fixes]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.6
+          cache-dependency-path: server/go.sum
+
+      - name: Verify JavaScript syntax
+        run: |
+          node --check web/static/app.js
+          node --check web/static/compat-010601.js
+          node --check web/static/bug.js
+
+      - name: Verify Go formatting
+        working-directory: server
+        shell: bash
+        run: |
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then
+            printf 'Go files require gofmt:\n%s\n' "$files" >&2
+            exit 1
+          fi
+
+      - name: Verify module graph
+        working-directory: server
+        run: go mod verify
+
+      - name: Run unit and regression tests
+        working-directory: server
+        run: go test -count=1 ./...
+
+      - name: Run race tests
+        working-directory: server
+        run: go test -race -count=1 ./...
+
+      - name: Run Go vet
+        working-directory: server
+        run: go vet ./...
+
+      - name: Run Go security static analysis
+        working-directory: server
+        shell: bash
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+          "$(go env GOPATH)/bin/gosec" -quiet ./...
+
+      - name: Run reachable-code vulnerability analysis
+        working-directory: server
+        shell: bash
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
+      - name: Validate Compose configuration
+        shell: bash
+        run: |
+          cp .env.example .env
+          docker compose config --quiet

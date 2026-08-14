@@ -1,83 +1,87 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: sovereign
-      POSTGRES_PASSWORD: sovereign
-      POSTGRES_DB: sovereign_conquest
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - db_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sovereign -d sovereign_conquest"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 20
+    networks:
+      - backend
 
   api:
     build:
       context: ./server
-      # If your stack deploy/build environment has restrictive or broken DNS while building
-      # images (common in some Portainer/remote builder setups), this lets you switch the
-      # build-time network mode.
-      #
-      # Examples (set in a local .env file or in your stack's environment variables):
-      #   SC_BUILD_NETWORK=host
-      #   SC_BUILD_NETWORK=default
       network: ${SC_BUILD_NETWORK:-default}
       args:
-        # If your build environment restricts outbound access to the default Go module proxy,
-        # override these via a local .env file or exported environment variables.
-        # Use "|direct" so Go falls back to direct VCS fetches if the proxy is
-        # unreachable (comma only falls back on 404/410).
         GOPROXY: ${GOPROXY:-https://proxy.golang.org|direct}
         GOSUMDB: ${GOSUMDB:-sum.golang.org}
         GOPRIVATE: ${GOPRIVATE:-}
         GONOSUMDB: ${GONOSUMDB:-}
-        # Optional: override build-time DNS within the build container.
-        # Example: SC_BUILD_DNS="1.1.1.1 8.8.8.8"
         SC_BUILD_DNS: ${SC_BUILD_DNS:-}
-        # Optional: proxy settings for module downloads (common on corporate networks).
-        # Docker automatically treats these as "proxy args" when building.
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         NO_PROXY: ${NO_PROXY:-}
         http_proxy: ${http_proxy:-}
         https_proxy: ${https_proxy:-}
         no_proxy: ${no_proxy:-}
-        # Set to 1 to force a vendored, fully-offline build (requires `server/vendor`).
-        SC_USE_VENDOR: ${SC_USE_VENDOR:-0}
+        SC_USE_VENDOR: ${SC_USE_VENDOR:-1}
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://sovereign:sovereign@db:5432/sovereign_conquest?sslmode=disable
-      JWT_SECRET: dev-secret-change-me
-      ADMIN_SECRET: "" # set to enable /api/admin/soft_wipe
-
-      # Seeded initial admin (requires password change on first login)
-      INITIAL_ADMIN_USERNAME: admin
-      INITIAL_ADMIN_PASSWORD: ChangeMeNow!
-      UNIVERSE_SEED: "2002"
-      UNIVERSE_SECTORS: "200"
-      TURN_REGEN_SECONDS: "120"
-      PORT_TICK_SECONDS: "60"
-      PLANET_TICK_SECONDS: "60"
-      EVENT_TICK_SECONDS: "60"
+      APP_ENV: ${APP_ENV:-development}
+      TRUST_PROXY_HEADERS: "true"
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
+      INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-admin}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
+      UNIVERSE_SEED: ${UNIVERSE_SEED:-2002}
+      UNIVERSE_SECTORS: ${UNIVERSE_SECTORS:-200}
+      TURN_REGEN_SECONDS: ${TURN_REGEN_SECONDS:-120}
+      PORT_TICK_SECONDS: ${PORT_TICK_SECONDS:-60}
+      PLANET_TICK_SECONDS: ${PLANET_TICK_SECONDS:-60}
+      EVENT_TICK_SECONDS: ${EVENT_TICK_SECONDS:-60}
+      PROTECTORATE_TICK_SECONDS: ${PROTECTORATE_TICK_SECONDS:-60}
       HTTP_ADDR: ":8080"
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - backend
 
   web:
     build:
       context: ./web
+    restart: unless-stopped
     depends_on:
       - api
     ports:
-      - "3000:80"
+      - "127.0.0.1:${WEB_PORT:-3000}:80"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+
+networks:
+  backend:
 
 volumes:
   db_data:

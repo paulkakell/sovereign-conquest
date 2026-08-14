@@ -120,7 +120,7 @@ func StartEventTicker(ctx context.Context, pool *pgxpool.Pool, tickSeconds int) 
 		tickSeconds = 10
 	}
 	// Deliberately not deterministic; events are meant to feel "alive".
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rng := rand.New(rand.NewSource(time.Now().UnixNano())) // #nosec G404 -- this drives non-security gameplay timing and outcomes only.
 	ticker := time.NewTicker(time.Duration(tickSeconds) * time.Second)
 
 	go func() {

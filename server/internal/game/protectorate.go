@@ -83,7 +83,7 @@ func EnsureProtectorateSectors(ctx context.Context, pool *pgxpool.Pool, seed int
 			candidates = append(candidates, id)
 		}
 
-		rng := rand.New(rand.NewSource(seed + 0x53504350)) // "SPCP"
+		rng := rand.New(rand.NewSource(seed + 0x53504350)) // #nosec G404 -- deterministic Protectorate placement is a seeded game rule, not a security decision.
 		rng.Shuffle(len(candidates), func(i, j int) { candidates[i], candidates[j] = candidates[j], candidates[i] })
 		if need > len(candidates) {
 			need = len(candidates)
@@ -103,9 +103,9 @@ func EnsureProtectorateSectors(ctx context.Context, pool *pgxpool.Pool, seed int
 	// Fighters: if missing/zero, seed into range.
 	_, err = tx.Exec(ctx, `
 		UPDATE sectors
-		SET protectorate_fighters = $2
+		SET protectorate_fighters = $1
 		WHERE is_protectorate=true AND protectorate_fighters <= 0
-	`, protectorateMinFighters, protectorateMinFighters)
+	`, protectorateMinFighters)
 	if err != nil {
 		return err
 	}
