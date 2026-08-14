@@ -49,7 +49,7 @@ func StartEventTickerLeader(ctx context.Context, pool *pgxpool.Pool, tickSeconds
 	if tickSeconds < 10 {
 		tickSeconds = 10
 	}
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rng := rand.New(rand.NewSource(time.Now().UnixNano())) // #nosec G404 -- this selects non-security gameplay events after leader election.
 
 	go func() {
 		ticker := time.NewTicker(time.Duration(tickSeconds) * time.Second)
