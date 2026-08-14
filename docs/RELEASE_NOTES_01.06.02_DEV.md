@@ -7,7 +7,7 @@ This prerelease exists for real-world validation before any merge to `main`.
 - Publish immutable `dev-01.06.02`, moving `dev`, and source-SHA GHCR tags.
 - Publish provenance, an SPDX SBOM, and a validation report.
 - Verify an unauthenticated GHCR pull and a second runtime smoke test.
-- Add CodeQL analysis.
+- Add a pinned gosec static application security testing gate.
 
 ## Fixes
 - Align application, browser, test, and documentation versions at 01.06.02.
@@ -17,7 +17,7 @@ This prerelease exists for real-world validation before any merge to `main`.
 ## Security
 - Upgrade chi to 5.3.1, jwt/v5 to 5.3.1, pgx/v5 to 5.10.0, and x/crypto to 0.55.0.
 - Regenerate `go.sum` and `server/vendor`.
-- Require clean reachable-code and container vulnerability gates before publication.
+- Require clean gosec, reachable-code, and container vulnerability gates before publication.
 
 ## Compatibility
 - No stable tag or `main` branch publication occurs.
