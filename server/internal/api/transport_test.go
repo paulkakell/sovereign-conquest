@@ -1,8 +1,11 @@
 package api
 
 import (
+	"bytes"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -21,6 +24,33 @@ func TestTransportProbes(t *testing.T) {
 		if recorder.Code != test.status {
 			t.Fatalf("%s status=%d want=%d", test.path, recorder.Code, test.status)
 		}
+	}
+}
+
+func TestTransportLogsDoNotExposeTrustedClientAddress(t *testing.T) {
+	t.Setenv("TRUST_PROXY_HEADERS", "true")
+
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	handler := HardenHTTP(nil, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+	req.RemoteAddr = "127.0.0.1:12345"
+	req.Header.Set("CF-Connecting-IP", "203.0.113.77")
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	logged := output.String()
+	if strings.Contains(logged, "203.0.113.77") {
+		t.Fatal("request log exposed a trusted client address")
+	}
+	if !strings.Contains(logged, "http_request") {
+		t.Fatal("request log entry was not written")
 	}
 }
 
