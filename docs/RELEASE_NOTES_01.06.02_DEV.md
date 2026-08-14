@@ -8,16 +8,19 @@ This prerelease exists for real-world validation before any merge to `main`.
 - Publish provenance, an SPDX SBOM, and a validation report.
 - Verify an unauthenticated GHCR pull and a second runtime smoke test.
 - Add a pinned gosec static application security testing gate.
+- Add a permanent fresh-PostgreSQL integration test that validates startup, readiness, registration, state retrieval, and a live command.
 
 ## Fixes
 - Align application, browser, test, and documentation versions at 01.06.02.
 - Move build and validation jobs to Go 1.26.6.
 - Correct the standalone bug-report page paths and version.
+- Correct the Protectorate startup query so PostgreSQL receives a contiguous `$1` parameter rather than an unused `$1` followed by `$2`.
+- Replace opaque release smoke polling with health-aware container diagnostics and captured PostgreSQL and application logs.
 
 ## Security
 - Upgrade chi to 5.3.1, jwt/v5 to 5.3.1, pgx/v5 to 5.10.0, and x/crypto to 0.55.0.
 - Regenerate `go.sum` and `server/vendor`.
-- Require clean gosec, reachable-code, and container vulnerability gates before publication.
+- Require clean gosec, reachable-code, CodeQL, and container vulnerability gates before publication.
 
 ## Compatibility
 - No stable tag or `main` branch publication occurs.
@@ -29,6 +32,7 @@ This prerelease exists for real-world validation before any merge to `main`.
 - Startup DDL remains transitional pending numbered migrations.
 
 ## References
-- SC-REL-012, SC-SEC-005, SC-DEP-003
+- SC-REL-012, SC-SEC-005, SC-DEP-003, SC-DB-005
 - Dependency remediation: `6fe80acb730006ba834bc322b192ebd776933239`
+- Protectorate startup fix: `2e8bfc0e4ae8efad001643dbb8b48b90fe05e5b0`
 - Audit base: `7cec9eaf47e835e6555fdd3f8284c7b73b0c20c3`
