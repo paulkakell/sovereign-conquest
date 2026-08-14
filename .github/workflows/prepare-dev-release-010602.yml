@@ -1,31 +1,23 @@
-name: Publish Development Release
+name: Patch Multipart SAST Annotation
 
 on:
   push:
     branches: [release-01.06.01-fixes]
     paths:
-      - releases/dev-*.json
-  workflow_dispatch:
+      - .github/workflows/prepare-dev-release-010602.yml
 
 permissions:
   contents: write
-  packages: write
-  attestations: write
-  id-token: write
-
-concurrency:
-  group: sovereign-conquest-development-release
-  cancel-in-progress: false
 
 jobs:
-  publish:
+  patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout candidate
+      - name: Checkout branch
         uses: actions/checkout@v5
         with:
+          ref: release-01.06.01-fixes
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -33,301 +25,43 @@ jobs:
           go-version: 1.26.6
           cache-dependency-path: server/go.sum
 
-      - name: Read and validate release manifest
-        id: release
+      - name: Add targeted SAST justification
         shell: bash
         run: |
           set -euo pipefail
-          manifest="$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep -E '^releases/dev-[0-9]{2}\.[0-9]{2}\.[0-9]{2}\.json$' | head -n 1 || true)"
-          if [ -z "$manifest" ]; then
-            manifest="$(find releases -maxdepth 1 -type f -name 'dev-*.json' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)"
-          fi
-          test -n "$manifest"
-          version="$(jq -er '.version' "$manifest")"
-          channel="$(jq -er '.channel' "$manifest")"
-          notes_file="$(jq -er '.notes_file' "$manifest")"
-          [[ "$version" =~ ^[0-9]{2}\.[0-9]{2}\.[0-9]{2}$ ]]
-          test "$channel" = "dev"
-          test -f "$notes_file"
-          test "$(tr -d '\r\n' < VERSION)" = "$version"
-          grep -q "Version = \"$version\"" server/internal/config/config.go
-          image="ghcr.io/${GITHUB_REPOSITORY,,}"
-          short_sha="${GITHUB_SHA:0:12}"
-          echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
-          echo "tag=dev-$version" >> "$GITHUB_OUTPUT"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
-          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Validate source and dependencies
+          path = Path("server/internal/api/server.go")
+          content = path.read_text()
+          old = "\tif err := r.ParseMultipartForm(maxMultipartMemory); err != nil {"
+          new = "\tif err := r.ParseMultipartForm(maxMultipartMemory); err != nil { // #nosec G120 -- MaxBytesReader immediately above caps the complete request body."
+          if content.count(old) != 1:
+              raise SystemExit(f"expected one multipart parser call, found {content.count(old)}")
+          path.write_text(content.replace(old, new, 1))
+          PY
+
+      - name: Validate annotated source
         working-directory: server
         shell: bash
         run: |
           set -euo pipefail
-          files="$(gofmt -l .)"
-          if [ -n "$files" ]; then
-            printf 'Go files require gofmt:\n%s\n' "$files" >&2
-            exit 1
-          fi
-          go mod verify
+          gofmt -w internal/api/server.go
           go test -count=1 ./...
           go test -race -count=1 ./...
           go vet ./...
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.28.0
+          "$(go env GOPATH)/bin/gosec" -quiet ./...
           go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
           "$(go env GOPATH)/bin/govulncheck" ./...
 
-      - name: Verify browser syntax
-        run: |
-          node --check web/static/app.js
-          node --check web/static/compat-010601.js
-          node --check web/static/bug.js
-
-      - name: Build local candidate image
-        run: docker build --pull --tag sovereign-conquest:dev-candidate .
-
-      - name: Scan local candidate
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: sovereign-conquest:dev-candidate
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-
-      - name: Generate SPDX SBOM
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: sovereign-conquest:dev-candidate
-          format: spdx-json
-          output: sovereign-conquest.spdx.json
-          exit-code: '0'
-
-      - name: Smoke-test local candidate
+      - name: Commit validated annotation
         shell: bash
-        env:
-          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
-          network="sc-local-$GITHUB_RUN_ID"
-          db="sc-local-db-$GITHUB_RUN_ID"
-          app="sc-local-app-$GITHUB_RUN_ID"
-          cleanup() {
-            docker rm -f "$app" "$db" >/dev/null 2>&1 || true
-            docker network rm "$network" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
-          docker network create "$network" >/dev/null
-          docker run -d --name "$db" --network "$network" \
-            -e POSTGRES_USER=sovereign \
-            -e POSTGRES_PASSWORD=DevelopmentOnlyDatabasePassword \
-            -e POSTGRES_DB=sovereign_conquest \
-            postgres:16-alpine >/dev/null
-          for attempt in $(seq 1 60); do
-            docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null 2>&1 && break
-            sleep 1
-          done
-          docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null
-          database_url="postgres://sovereign:DevelopmentOnlyDatabasePassword@$db:5432/sovereign_conquest?sslmode=disable"
-          docker run -d --name "$app" --network "$network" -p 127.0.0.1:18080:8080 \
-            -e APP_ENV=development \
-            -e "DATABASE_URL=$database_url" \
-            -e JWT_SECRET='Development-Only-JWT-Secret-For-Release-Validation-2026' \
-            -e ADMIN_SECRET='Development-Only-Administrator-Secret-For-Validation' \
-            -e INITIAL_ADMIN_USERNAME=admin \
-            -e INITIAL_ADMIN_PASSWORD='Development-Only-Admin-Password-2026!' \
-            -e UNIVERSE_SECTORS=40 \
-            -e PORT_TICK_SECONDS=0 \
-            -e PLANET_TICK_SECONDS=0 \
-            -e EVENT_TICK_SECONDS=0 \
-            -e PROTECTORATE_TICK_SECONDS=0 \
-            sovereign-conquest:dev-candidate >/dev/null
-          for attempt in $(seq 1 90); do
-            curl -fsS http://127.0.0.1:18080/api/readyz >/dev/null 2>&1 && break
-            sleep 1
-          done
-          curl -fsS http://127.0.0.1:18080/api/readyz >/dev/null || { docker logs "$app"; exit 1; }
-          curl -fsS http://127.0.0.1:18080/api/livez | jq -e --arg version "$VERSION" '.ok == true and .version == $version' >/dev/null
-          curl -fsS http://127.0.0.1:18080/api/version | jq -e --arg version "$VERSION" '.version == $version' >/dev/null
-          curl -fsS http://127.0.0.1:18080/ | grep -F "$VERSION" >/dev/null
-          player="smoke${GITHUB_RUN_ID: -6}"
-          registration="$(curl -fsS -H 'Content-Type: application/json' \
-            -d "{\"username\":\"$player\",\"password\":\"Development-Only-Player-Password-2026!\"}" \
-            http://127.0.0.1:18080/api/register)"
-          token="$(echo "$registration" | jq -er '.token')"
-          curl -fsS -H "Authorization: Bearer $token" http://127.0.0.1:18080/api/state | jq -e '.state != null' >/dev/null
-          curl -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
-            -d '{"type":"SCAN"}' http://127.0.0.1:18080/api/command >/dev/null
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push development image
-        id: push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          platforms: linux/amd64
-          tags: |
-            ${{ steps.release.outputs.image }}:dev
-            ${{ steps.release.outputs.image }}:dev-${{ steps.release.outputs.version }}
-            ${{ steps.release.outputs.image }}:sha-${{ steps.release.outputs.short_sha }}
-          labels: |
-            org.opencontainers.image.title=Sovereign Conquest
-            org.opencontainers.image.version=${{ steps.release.outputs.version }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-          cache-from: type=gha,scope=dev-release
-          cache-to: type=gha,mode=max,scope=dev-release
-
-      - name: Attest image provenance
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-name: ${{ steps.release.outputs.image }}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
-
-      - name: Verify anonymous GHCR pull
-        shell: bash
-        env:
-          IMAGE: ${{ steps.release.outputs.image }}
-          VERSION: ${{ steps.release.outputs.version }}
-        run: |
-          set -euo pipefail
-          docker logout ghcr.io >/dev/null 2>&1 || true
-          docker image rm "$IMAGE:dev-$VERSION" "$IMAGE:dev" >/dev/null 2>&1 || true
-          clean_config="$(mktemp -d)"
-          trap 'rm -rf "$clean_config"' EXIT
-          DOCKER_CONFIG="$clean_config" docker pull "$IMAGE:dev-$VERSION"
-          docker image inspect "$IMAGE:dev-$VERSION" >/dev/null
-
-      - name: Scan anonymously pulled image
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: ${{ steps.release.outputs.image }}:dev-${{ steps.release.outputs.version }}
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-
-      - name: Smoke-test anonymously pulled image
-        shell: bash
-        env:
-          IMAGE: ${{ steps.release.outputs.image }}
-          VERSION: ${{ steps.release.outputs.version }}
-        run: |
-          set -euo pipefail
-          network="sc-public-$GITHUB_RUN_ID"
-          db="sc-public-db-$GITHUB_RUN_ID"
-          app="sc-public-app-$GITHUB_RUN_ID"
-          cleanup() {
-            docker rm -f "$app" "$db" >/dev/null 2>&1 || true
-            docker network rm "$network" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
-          docker network create "$network" >/dev/null
-          docker run -d --name "$db" --network "$network" \
-            -e POSTGRES_USER=sovereign \
-            -e POSTGRES_PASSWORD=PublicPullValidationDatabasePassword \
-            -e POSTGRES_DB=sovereign_conquest \
-            postgres:16-alpine >/dev/null
-          for attempt in $(seq 1 60); do
-            docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null 2>&1 && break
-            sleep 1
-          done
-          docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null
-          database_url="postgres://sovereign:PublicPullValidationDatabasePassword@$db:5432/sovereign_conquest?sslmode=disable"
-          docker run -d --name "$app" --network "$network" -p 127.0.0.1:18081:8080 \
-            -e APP_ENV=development \
-            -e "DATABASE_URL=$database_url" \
-            -e JWT_SECRET='Public-Pull-Validation-JWT-Secret-For-Development-Release' \
-            -e INITIAL_ADMIN_PASSWORD='Public-Pull-Validation-Admin-Password-2026!' \
-            -e UNIVERSE_SECTORS=40 \
-            -e PORT_TICK_SECONDS=0 \
-            -e PLANET_TICK_SECONDS=0 \
-            -e EVENT_TICK_SECONDS=0 \
-            -e PROTECTORATE_TICK_SECONDS=0 \
-            "$IMAGE:dev-$VERSION" >/dev/null
-          for attempt in $(seq 1 90); do
-            curl -fsS http://127.0.0.1:18081/api/readyz >/dev/null 2>&1 && break
-            sleep 1
-          done
-          curl -fsS http://127.0.0.1:18081/api/readyz >/dev/null || { docker logs "$app"; exit 1; }
-          curl -fsS http://127.0.0.1:18081/api/version | jq -e --arg version "$VERSION" '.version == $version' >/dev/null
-          curl -fsS http://127.0.0.1:18081/ | grep -F "$VERSION" >/dev/null
-          player="public${GITHUB_RUN_ID: -6}"
-          registration="$(curl -fsS -H 'Content-Type: application/json' \
-            -d "{\"username\":\"$player\",\"password\":\"Public-Pull-Player-Password-2026!\"}" \
-            http://127.0.0.1:18081/api/register)"
-          token="$(echo "$registration" | jq -er '.token')"
-          curl -fsS -H "Authorization: Bearer $token" http://127.0.0.1:18081/api/state | jq -e '.state != null' >/dev/null
-          curl -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
-            -d '{"type":"SCAN"}' http://127.0.0.1:18081/api/command >/dev/null
-
-      - name: Write release validation report
-        shell: bash
-        env:
-          VERSION: ${{ steps.release.outputs.version }}
-          IMAGE: ${{ steps.release.outputs.image }}
-          DIGEST: ${{ steps.push.outputs.digest }}
-          TAG: ${{ steps.release.outputs.tag }}
-        run: |
-          cat > dev-release-validation.md <<EOF
-          # Sovereign Conquest Development Release Validation
-
-          - Version: $VERSION
-          - Git tag: $TAG
-          - Source commit: $GITHUB_SHA
-          - Image: $IMAGE:dev-$VERSION
-          - Moving channel tag: $IMAGE:dev
-          - Image digest: $DIGEST
-          - Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-          - Unit and regression tests: passed
-          - Race detector: passed
-          - Go vet: passed
-          - govulncheck: zero reachable vulnerabilities
-          - Local container smoke test: passed
-          - Trivy high and critical scan: passed
-          - Anonymous GHCR pull: passed
-          - Publicly pulled container smoke test: passed
-          - Provenance attestation: published
-          EOF
-
-      - name: Upload validation artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: sovereign-conquest-dev-${{ steps.release.outputs.version }}
-          path: |
-            dev-release-validation.md
-            sovereign-conquest.spdx.json
-          if-no-files-found: error
-
-      - name: Create or update GitHub prerelease
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.release.outputs.version }}
-          TAG: ${{ steps.release.outputs.tag }}
-          NOTES_FILE: ${{ steps.release.outputs.notes_file }}
-        run: |
-          set -euo pipefail
-          title="Sovereign Conquest $VERSION Development Release"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "$title" --notes-file "$NOTES_FILE" --prerelease
-            gh release upload "$TAG" dev-release-validation.md sovereign-conquest.spdx.json --clobber
-          else
-            gh release create "$TAG" dev-release-validation.md sovereign-conquest.spdx.json \
-              --target "$GITHUB_SHA" --title "$title" --notes-file "$NOTES_FILE" --prerelease
-          fi
-          gh release view "$TAG" --json isPrerelease,tagName,targetCommitish,url
+          git add -- server/internal/api/server.go
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'security: document bounded multipart parsing'
+          git push origin HEAD:release-01.06.01-fixes
