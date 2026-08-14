@@ -83,7 +83,7 @@ func EnsureProtectorateSectors(ctx context.Context, pool *pgxpool.Pool, seed int
 			candidates = append(candidates, id)
 		}
 
-		rng := rand.New(rand.NewSource(seed + 0x53504350)) // "SPCP"
+		rng := rand.New(rand.NewSource(seed + 0x53504350)) // #nosec G404 -- deterministic Protectorate placement is a seeded game rule, not a security decision.
 		rng.Shuffle(len(candidates), func(i, j int) { candidates[i], candidates[j] = candidates[j], candidates[i] })
 		if need > len(candidates) {
 			need = len(candidates)
