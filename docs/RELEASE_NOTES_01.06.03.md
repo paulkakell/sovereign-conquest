@@ -2,7 +2,7 @@
 
 ## Summary
 
-Version 01.06.03 changes the default Docker Compose deployment from local image builds to the combined GHCR image at `ghcr.io/paulkakell/sovereign-conquest:main`. It also completes repository consolidation so `main` is the only long-lived branch.
+Version 01.06.03 changes the default Docker Compose deployment from local image builds to the combined GHCR image at `ghcr.io/paulkakell/sovereign-conquest:main`. It also completes repository consolidation so `main` is the only long-lived branch and restores the production GHCR publication path.
 
 ## Fixes
 
@@ -12,6 +12,17 @@ Version 01.06.03 changes the default Docker Compose deployment from local image 
 - Add an always-pull default through `SC_PULL_POLICY` while permitting an operator override.
 - Remove obsolete build-time variables from `.env.example`.
 - Align application, documentation, and active browser version badges at v01.06.03.
+- Replace the inactivity-disabled Docker workflow with an active publisher.
+
+## Published artifacts
+
+The GHCR workflow publishes:
+
+- `ghcr.io/paulkakell/sovereign-conquest:main`
+- `ghcr.io/paulkakell/sovereign-conquest:01.06.03`
+- `ghcr.io/paulkakell/sovereign-conquest:sha-<source-sha>`
+
+The pushed version image receives provenance attestation, a high and critical vulnerability scan, and a fresh-PostgreSQL runtime smoke test.
 
 ## Security and reliability
 
@@ -58,3 +69,4 @@ Restore the previous Compose file and set `SC_IMAGE` to the prior verified image
 - SC-DEPLOY-003
 - SC-CI-012
 - SC-REPO-001
+- SC-REL-013

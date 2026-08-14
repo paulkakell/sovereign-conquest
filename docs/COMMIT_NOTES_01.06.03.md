@@ -13,6 +13,9 @@ release: promote Sovereign Conquest v01.06.03
 - add Compose contract regression coverage
 - align active application, documentation, and web badges at v01.06.03
 - retire the obsolete 01.06.02 branch-scoped development-release workflow and manifest
+- replace the inactivity-disabled Docker workflow with an active GHCR publisher
+- publish main, 01.06.03, and source-SHA image tags
+- attest, scan, and smoke-test the pushed version image
 - close dependency proposals not selected for this release
 - remove merged, superseded, prerelease, and obsolete branches
 - retain main as the only long-lived branch
@@ -24,5 +27,5 @@ Breaking deployment behavior:
 Application dependencies: unchanged
 Database migrations: none
 Rollback: restore the prior Compose file and pin SC_IMAGE to the previously verified image digest
-References: SC-DEPLOY-003, SC-CI-012, SC-REPO-001
+References: SC-DEPLOY-003, SC-CI-012, SC-REPO-001, SC-REL-013
 ```

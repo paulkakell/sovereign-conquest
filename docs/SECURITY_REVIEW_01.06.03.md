@@ -17,6 +17,14 @@ No request parsing, command validation, attachment handling, or logging behavior
 - Application ports remain loopback-only by default.
 - `SC_IMAGE` supports digest pinning to reduce moving-tag and supply-chain risk.
 
+## Publication controls
+
+- The active publisher creates `main`, version, and source-SHA image tags.
+- Build provenance is attested against the pushed image digest.
+- The pushed version image is scanned for high and critical operating-system and library vulnerabilities.
+- The exact pushed image is exercised against a fresh PostgreSQL database before the workflow can pass.
+- Publication credentials use the workflow-scoped `GITHUB_TOKEN`; no registry secret is committed.
+
 ## Dependency validation
 
 Application dependencies, Go module checksums, and the committed vendor tree do not change in 01.06.03. Automated dependency branches were reviewed during repository consolidation:
@@ -25,7 +33,7 @@ Application dependencies, Go module checksums, and the committed vendor tree do 
 - Unrelated major GitHub Actions and Nginx proposals were closed for separate review rather than silently entering this deployment release.
 - The obsolete development-release workflow that referenced older action versions was removed.
 
-The full source, race, static-analysis, reachable-vulnerability, CodeQL, image-build, Compose, and fresh-database gates must remain green before promotion.
+The full source, race, static-analysis, reachable-vulnerability, CodeQL, image-build, Compose, publication-scan, and fresh-database gates must remain green.
 
 ## Database review
 
@@ -33,8 +41,8 @@ No schema migration or data-format change is introduced. Forward and rollback da
 
 ## Branch and workflow review
 
-`main` is the only long-lived branch after promotion. A one-time, least-privilege cleanup workflow removes disposed branches and is deleted after successful execution. Historical version records remain as documentation rather than executable branch-scoped automation.
+`main` is the only long-lived branch after promotion. A one-time, least-privilege cleanup workflow removed disposed branches and was deleted after successful execution. Historical version records remain as documentation rather than executable branch-scoped automation.
 
 ## Remaining considerations
 
-The default `main` image tag is moving. Production deployments should override `SC_IMAGE` with an immutable tag or digest and verify the corresponding provenance attestation before deployment.
+The `main` image tag is moving. Production deployments should use the version tag or override `SC_IMAGE` with a verified digest and confirm the corresponding provenance attestation before deployment.

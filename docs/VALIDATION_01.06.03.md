@@ -38,6 +38,17 @@ CI copies `.env.example` to `.env` and runs `docker compose config --quiet`. Bui
 - Historical release documents retain their original version numbers.
 - The obsolete 01.06.02 branch-scoped development-release workflow and manifest are removed.
 
+## Publication validation
+
+The active `Publish GHCR Image` workflow:
+
+- reads and validates the root version;
+- publishes `main`, `01.06.03`, and source-SHA tags;
+- applies OCI version, source, and revision labels;
+- publishes provenance attestation;
+- scans the pushed version image for high and critical vulnerabilities;
+- starts a fresh PostgreSQL database and smoke-tests the pushed image, including the reported application version.
+
 ## Dependency and database status
 
 Application dependencies and database migrations do not change in this release. Automated dependency proposals were reviewed separately; prerelease compiler branches and unrelated major updates were not folded into v01.06.03.

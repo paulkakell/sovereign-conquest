@@ -7,10 +7,13 @@ Sovereign Conquest is a turn-based browser game built around an authoritative Go
 The repository publishes one combined API and web image:
 
 ```bash
+docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.03
 docker pull ghcr.io/paulkakell/sovereign-conquest:main
 ```
 
-The `main` tag moves after a validated push to the default branch. For reproducible production deployments, set `SC_IMAGE` to an immutable version tag or image digest instead of the moving tag.
+`01.06.03` is the release tag for this version. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
+
+The publication workflow also emits a source-SHA tag, provenance attestation, high and critical vulnerability scan, and a runtime smoke test of the pushed image.
 
 ## Architecture
 
