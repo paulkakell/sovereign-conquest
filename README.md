@@ -1,6 +1,6 @@
 # Sovereign Conquest
 
-Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current release candidate is **v01.06.03**.
+Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current release is **v01.06.03**.
 
 ## GHCR image
 
@@ -30,7 +30,7 @@ Every state-changing game action is validated on the server and applied through 
 cp .env.example .env
 # Replace every placeholder secret in .env.
 docker compose pull
-docker compose up -d
+docker compose up -d --remove-orphans
 ```
 
 Open `http://localhost:3000`. The same combined application is also available on `http://localhost:8080`, preserving the prior direct API port. PostgreSQL remains on the internal Compose network.
@@ -53,7 +53,7 @@ Reset a development universe:
 ```bash
 docker compose down -v
 docker compose pull
-docker compose up -d
+docker compose up -d --remove-orphans
 ```
 
 The former standalone `web` service has been removed. Use `docker compose logs api` for the combined service. `docker compose build` is no longer part of the Compose deployment path.
@@ -67,6 +67,10 @@ docker build -t sovereign-conquest:01.06.03 .
 ```
 
 The combined image serves the API and web UI on port 8080. Production mode rejects weak secrets and database connections without transport verification.
+
+## Branch policy
+
+`main` is the only long-lived branch. Feature, release, and automated dependency branches are reviewed, merged when appropriate, and removed after disposition. Release history remains in `CHANGELOG.md` and the versioned files under `docs/`.
 
 ## Health and observability
 
