@@ -1,7 +1,7 @@
 # Commit Notes 01.06.03
 
 ```text
-fix(compose): deploy the combined GHCR image
+release: promote Sovereign Conquest v01.06.03
 
 - bump Sovereign Conquest to 01.06.03
 - replace Compose build definitions with ghcr.io/paulkakell/sovereign-conquest:main
@@ -11,14 +11,18 @@ fix(compose): deploy the combined GHCR image
 - retain loopback binding, internal PostgreSQL, read-only filesystem, dropped capabilities, and no-new-privileges
 - remove obsolete Compose build variables from .env.example
 - add Compose contract regression coverage
-- update active web badges, README, configuration guidance, changelog, validation, security review, and release notes
+- align active application, documentation, and web badges at v01.06.03
+- retire the obsolete 01.06.02 branch-scoped development-release workflow and manifest
+- close dependency proposals not selected for this release
+- remove merged, superseded, prerelease, and obsolete branches
+- retain main as the only long-lived branch
 
 Breaking deployment behavior:
 - docker compose build is no longer used
 - the web service name is removed; use the api service for logs and lifecycle operations
 
-Dependencies: unchanged
+Application dependencies: unchanged
 Database migrations: none
 Rollback: restore the prior Compose file and pin SC_IMAGE to the previously verified image digest
-References: SC-DEPLOY-003, SC-CI-012
+References: SC-DEPLOY-003, SC-CI-012, SC-REPO-001
 ```
