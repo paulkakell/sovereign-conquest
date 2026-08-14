@@ -1,400 +1,66 @@
-name: Prepare Development Release 01.06.02
+name: Publish Development Release
 
 on:
   push:
-    branches:
-      - release-01.06.01-fixes
+    branches: [release-01.06.01-fixes]
     paths:
-      - .github/workflows/prepare-dev-release-010602.yml
+      - releases/dev-*.json
+  workflow_dispatch:
 
 permissions:
   contents: write
+  packages: write
+  attestations: write
+  id-token: write
+
+concurrency:
+  group: sovereign-conquest-development-release
+  cancel-in-progress: false
 
 jobs:
-  prepare:
+  publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout remediation branch
+      - name: Checkout candidate
         uses: actions/checkout@v5
         with:
-          ref: release-01.06.01-fixes
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Set up patched Go toolchain
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: 1.26.6
           cache-dependency-path: server/go.sum
 
-      - name: Prepare version and documentation
+      - name: Read and validate release manifest
+        id: release
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          from textwrap import dedent
-
-          version = "01.06.02"
-
-          def read(path):
-              return Path(path).read_text()
-
-          def write(path, content):
-              target = Path(path)
-              target.parent.mkdir(parents=True, exist_ok=True)
-              target.write_text(content)
-
-          def replace(path, old, new):
-              content = read(path)
-              if old not in content:
-                  raise SystemExit(f"{path}: missing required text {old}")
-              write(path, content.replace(old, new))
-
-          write("VERSION", version + "\n")
-          replace("server/internal/config/config.go", 'Version = "01.06.01"', f'Version = "{version}"')
-          replace("Dockerfile", "golang:1.26.5-alpine3.24", "golang:1.26.6-alpine3.24")
-          replace("server/Dockerfile", "golang:1.26.5-alpine3.24", "golang:1.26.6-alpine3.24")
-          replace("server/internal/build/root_dockerfile_test.go", "golang:1.26.5-alpine3.24", "golang:1.26.6-alpine3.24")
-          replace("web/static/index.html", "01.06.01", version)
-          replace("server/internal/build/web_contract_test.go", "01.06.01", version)
-
-          write("web/static/bug.html", dedent(f'''\
-          <!doctype html>
-          <html lang="en">
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Report A Bug - Sovereign Conquest</title>
-            <link rel="stylesheet" href="/style.css?v={version}">
-          </head>
-          <body>
-            <div class="wrap">
-              <header class="header">
-                <div class="title">Report A Bug</div>
-                <div class="subtitle" id="bugVersion">v{version}</div>
-              </header>
-              <section class="panel">
-                <div class="card">
-                  <h3>Bug report</h3>
-                  <div class="muted">This sends a message, with optional attachments, to the administrator account through in-game messaging.</div>
-                  <form id="bugForm" class="bugForm">
-                    <label>Title</label>
-                    <input id="bugSubject" maxlength="120" required placeholder="Short summary">
-                    <label>Description</label>
-                    <textarea id="bugBody" rows="10" maxlength="8000" required placeholder="What happened? What did you expect? Steps to reproduce?"></textarea>
-                    <label>Attachments (optional)</label>
-                    <div class="muted">Up to 5 files, 5 MiB each, 25 MiB total.</div>
-                    <input id="bugFiles" type="file" multiple>
-                    <button type="submit">Send bug report</button>
-                  </form>
-                  <div id="bugMsg" class="msg"></div>
-                  <div id="bugHint" class="muted"></div>
-                </div>
-              </section>
-            </div>
-            <script src="/bug.js?v={version}"></script>
-          </body>
-          </html>
-          '''))
-
-          write(".env.example", dedent('''\
-          # Copy this file to .env before using docker compose.
-          APP_ENV=development
-          POSTGRES_USER=sovereign
-          POSTGRES_PASSWORD=replace-with-a-long-database-password
-          POSTGRES_DB=sovereign_conquest
-          JWT_SECRET=replace-with-at-least-32-random-characters
-          ADMIN_SECRET=replace-with-at-least-32-random-characters
-          INITIAL_ADMIN_USERNAME=admin
-          INITIAL_ADMIN_PASSWORD=replace-with-at-least-16-random-characters
-          UNIVERSE_SEED=2002
-          UNIVERSE_SECTORS=200
-          TURN_REGEN_SECONDS=120
-          PORT_TICK_SECONDS=60
-          PLANET_TICK_SECONDS=60
-          EVENT_TICK_SECONDS=60
-          PROTECTORATE_TICK_SECONDS=60
-          WEB_PORT=3000
-
-          SC_USE_VENDOR=1
-          SC_BUILD_NETWORK=default
-          SC_BUILD_DNS=
-          GOPROXY=https://proxy.golang.org|direct
-          GOSUMDB=sum.golang.org
-          GOPRIVATE=
-          GONOSUMDB=
-          HTTP_PROXY=
-          HTTPS_PROXY=
-          NO_PROXY=
-          http_proxy=
-          https_proxy=
-          no_proxy=
-          '''))
-
-          write("README.md", dedent(f'''\
-          # Sovereign Conquest
-
-          Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current development candidate is **{version}**.
-
-          ## Development image
-
-          ```bash
-          docker pull ghcr.io/paulkakell/sovereign-conquest:dev-{version}
-          docker pull ghcr.io/paulkakell/sovereign-conquest:dev
-          ```
-
-          `dev-{version}` is immutable. `dev` moves to the newest validated development candidate. Neither tag is the stable channel.
-
-          Development publication requires unit and regression tests, race detection, `go vet`, `govulncheck`, container scanning, an SPDX SBOM, provenance attestation, a local runtime smoke test, an anonymous GHCR pull, and a second smoke test of the publicly pulled image.
-
-          ## Architecture
-
-          - Go API and transactional command engine
-          - PostgreSQL authoritative state
-          - Nginx split deployment or an all-in-one image served by Go
-          - Server-managed turn, port, planet, event, and Protectorate jobs
-          - Per-player discovery, market intelligence, planets, corporations, mines, seasons, messaging, and events
-
-          Every state-changing game action is validated on the server and applied through database transactions. Client-provided outcomes are never authoritative.
-
-          ## Local split deployment
-
-          ```bash
-          cp .env.example .env
-          # Replace every placeholder secret in .env.
-          docker compose up --build
-          ```
-
-          Open `http://localhost:3000`. The API is bound to `127.0.0.1:8080`. PostgreSQL remains on the internal Compose network.
-
-          To reset a development universe:
-
-          ```bash
-          docker compose down -v
-          docker compose up --build
-          ```
-
-          ## All-in-one local build
-
-          ```bash
-          docker build -t sovereign-conquest:{version} .
-          ```
-
-          The combined image serves the API and web UI on port 8080. Production mode rejects weak secrets and database connections without transport verification.
-
-          ## Health and observability
-
-          - `GET /api/livez`: process liveness and version
-          - `GET /api/readyz`: database readiness
-          - structured request logs include method, path, status, response size, duration, and client address
-
-          ## Commands
-
-          ```text
-          SCAN
-          MOVE <sector>
-          TRADE <BUY|SELL> <ORE|ORGANICS|EQUIPMENT> <quantity>
-          PLANET INFO
-          PLANET COLONIZE [name]
-          PLANET LOAD <commodity> <quantity>
-          PLANET UNLOAD <commodity> <quantity>
-          PLANET UPGRADE CITADEL
-          CORP INFO
-          CORP CREATE <name>
-          CORP JOIN <name>
-          CORP LEAVE
-          CORP SAY <message>
-          CORP DEPOSIT <credits>
-          CORP WITHDRAW <credits>
-          MINE DEPLOY <quantity>
-          MINE SWEEP
-          SHIPYARD
-          SHIPYARD BUY <SCOUT|TRADER|FREIGHTER|INTERCEPTOR>
-          SHIPYARD SELL
-          SHIPYARD UPGRADE <CARGO|TURNS>
-          MARKET [commodity]
-          ROUTE [commodity]
-          EVENTS
-          RANKINGS
-          SEASON
-          ```
-
-          ## Administrator season reset
-
-          `/api/admin/soft_wipe` is enabled only when `ADMIN_SECRET` is configured. It requires an authenticated administrator bearer token and the separate `X-Admin-Secret` value.
-
-          ## Validation
-
-          ```bash
-          cd server
-          go mod verify
-          go test -count=1 ./...
-          go test -race -count=1 ./...
-          go vet ./...
-          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
-          "$(go env GOPATH)/bin/govulncheck" ./...
-          cd ..
-          cp .env.example .env
-          docker compose config --quiet
-          docker build --pull -t sovereign-conquest:validation .
-          docker build --pull -t sovereign-conquest-api:validation ./server
-          docker build --pull -t sovereign-conquest-web:validation ./web
-          ```
-
-          Deployment details, rollback guidance, security findings, and test cases are under `docs/`.
-          '''))
-
-          write("docs/RELEASE_NOTES_01.06.02_DEV.md", dedent(f'''\
-          # Sovereign Conquest {version} Development Release
-
-          This prerelease exists for real-world validation before any merge to `main`.
-
-          ## Additive
-          - Add a branch-scoped development release workflow.
-          - Publish immutable `dev-{version}`, moving `dev`, and source-SHA GHCR tags.
-          - Publish provenance, an SPDX SBOM, and a validation report.
-          - Verify an unauthenticated GHCR pull and a second runtime smoke test.
-          - Add CodeQL analysis.
-
-          ## Fixes
-          - Align application, browser, test, and documentation versions at {version}.
-          - Move build and validation jobs to Go 1.26.6.
-          - Correct the standalone bug-report page paths and version.
-
-          ## Security
-          - Upgrade chi to 5.3.1, jwt/v5 to 5.3.1, pgx/v5 to 5.10.0, and x/crypto to 0.55.0.
-          - Regenerate `go.sum` and `server/vendor`.
-          - Require clean reachable-code and container vulnerability gates before publication.
-
-          ## Compatibility
-          - No stable tag or `main` branch publication occurs.
-          - Development deployment requires PostgreSQL and environment-specific secrets.
-          - Production mode requires verified database transport.
-
-          ## Known limitations
-          - The season-reset transaction still needs its planned atomic error-handling and durable audit-event rewrite.
-          - Startup DDL remains transitional pending numbered migrations.
-
-          ## References
-          - SC-REL-012, SC-SEC-005, SC-DEP-003
-          - Dependency remediation: `6fe80acb730006ba834bc322b192ebd776933239`
-          - Audit base: `7cec9eaf47e835e6555fdd3f8284c7b73b0c20c3`
-          '''))
-
-          write("docs/DEV_DEPLOYMENT_01.06.02.md", dedent(f'''\
-          # Development Deployment {version}
-
-          Pull the immutable image:
-
-          ```bash
-          docker pull ghcr.io/paulkakell/sovereign-conquest:dev-{version}
-          ```
-
-          Use PostgreSQL 16, bind port 8080 only to the intended test interface, and provide unique database, JWT, administrator, and bootstrap password values. For production-like testing, put TLS termination in front of the application, trust forwarding headers only from that proxy, and use a TLS-verified PostgreSQL connection when `APP_ENV=production`.
-
-          ## Functional test checklist
-          1. Confirm `/api/livez`, `/api/readyz`, and `/api/version`.
-          2. Complete the seeded administrator password change.
-          3. Register a player and run `SCAN`, `MOVE`, and a trade.
-          4. Exercise messages, attachments, bug reporting, planet transfers, corporation banking, market filters, and route suggestions.
-          5. Restart the stack and confirm persistence.
-          6. Review structured request logs and readiness behavior.
-          7. Record defects against the `dev-{version}` tag and image digest.
-
-          ## Rollback
-          Stop the candidate, preserve logs, and start the prior immutable image tag or digest after reviewing schema compatibility. Take and verify a PostgreSQL backup before season resets or destructive tests.
-          '''))
-
-          write("docs/SECURITY_REVIEW_01.06.02.md", dedent(f'''\
-          # Security Review {version}
-
-          - Authentication uses bcrypt cost 12 and restricted JWT validation.
-          - Season reset requires a current administrator identity plus a separate administration secret.
-          - Request limits, endpoint throttles, attachment authorization, and server-side command validation remain enabled.
-          - HTTP timeouts, security headers, proxy sanitization, liveness, readiness, and structured request logs remain enabled.
-          - The module graph and vendor tree were regenerated and verified.
-          - Unit tests, regression tests, race testing, `go vet`, and reachable-code vulnerability analysis passed before preparation.
-          - The release gate adds non-root container validation, high and critical vulnerability scanning, an SPDX SBOM, and provenance attestation.
-
-          Remaining material work is the fully atomic and durably audited season-reset transaction.
-          '''))
-
-          write("docs/VALIDATION_01.06.02.md", dedent(f'''\
-          # Validation Record {version}
-
-          Completed before release preparation:
-          - module verification;
-          - unit and regression tests;
-          - race detector;
-          - `go vet`;
-          - zero reachable vulnerabilities from `govulncheck` under Go 1.26.6;
-          - JavaScript syntax validation;
-          - Docker Compose validation;
-          - combined, API, and web image builds.
-
-          The publication workflow must additionally pass container scanning, SBOM generation, local smoke testing, GHCR publication, provenance attestation, anonymous pulling, and smoke testing of the publicly pulled image. It emits a validation report and SBOM as workflow and prerelease artifacts.
-          '''))
-
-          write("docs/COMMIT_NOTES_01.06.02.md", dedent(f'''\
-          # Commit Notes {version}
-
-          ```text
-          release(dev): publish Sovereign Conquest {version} candidate
-
-          - bump application and browser metadata to {version}
-          - update Go build and validation toolchain to 1.26.6
-          - refresh chi, jwt/v5, pgx/v5, x/crypto, go.sum, and vendor
-          - add CodeQL, govulncheck, container scanning, SBOM, and provenance gates
-          - add GHCR dev, dev-{version}, and source-SHA tags
-          - verify unauthenticated GHCR pull and runtime behavior
-          - update README, changelog, deployment, security, validation, and release notes
-
-          Breaking behavior: none for stable tags or main.
-          Rollback: redeploy the prior immutable image digest or version tag and restore the database only from a verified backup when required.
-          References: SC-REL-012, SC-SEC-005, SC-DEP-003
-          ```
-          '''))
-
-          changelog = read("CHANGELOG.md")
-          marker = "# Changelog\n"
-          if not changelog.startswith(marker):
-              raise SystemExit("CHANGELOG.md header not found")
-          if f"## {version} " not in changelog:
-              entry = dedent(f'''\
-
-              ## {version} (2026-08-13)
-
-              Additive
-              - Add a branch-scoped development release pipeline with immutable and moving GHCR development tags.
-              - Add CodeQL, provenance attestation, SPDX SBOM generation, anonymous package-pull verification, and runtime smoke tests.
-              - Add deployment, validation, security-review, release-note, and commit-note documentation.
-
-              Fix
-              - Align application, browser, test, and documentation version metadata at {version}.
-              - Correct the standalone bug-report page paths and version.
-              - Move compiled images and security validation to Go 1.26.6.
-
-              Security
-              - Upgrade chi to 5.3.1, jwt/v5 to 5.3.1, pgx/v5 to 5.10.0, and x/crypto to 0.55.0.
-              - Regenerate and verify `go.sum` and `server/vendor`.
-              - Require clean reachable-code and container vulnerability gates before development publication.
-
-              Compatibility
-              - Additive for the development channel; no stable tag or `main` publication occurs.
-
-              Known limitations
-              - Season-reset atomicity and durable audit insertion remain planned follow-up work.
-              - Startup DDL remains transitional pending numbered migrations.
-
-              Refs
-              - SC-REL-012, SC-SEC-005, SC-DEP-003
-              - Dependency commit: 6fe80acb730006ba834bc322b192ebd776933239
-              - Audit base: 7cec9eaf47e835e6555fdd3f8284c7b73b0c20c3
-              ''')
-              write("CHANGELOG.md", marker + entry + changelog[len(marker):])
-          PY
-
-      - name: Validate source and dependency graph
+          manifest="$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep -E '^releases/dev-[0-9]{2}\.[0-9]{2}\.[0-9]{2}\.json$' | head -n 1 || true)"
+          if [ -z "$manifest" ]; then
+            manifest="$(find releases -maxdepth 1 -type f -name 'dev-*.json' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)"
+          fi
+          test -n "$manifest"
+          version="$(jq -er '.version' "$manifest")"
+          channel="$(jq -er '.channel' "$manifest")"
+          notes_file="$(jq -er '.notes_file' "$manifest")"
+          [[ "$version" =~ ^[0-9]{2}\.[0-9]{2}\.[0-9]{2}$ ]]
+          test "$channel" = "dev"
+          test -f "$notes_file"
+          test "$(tr -d '\r\n' < VERSION)" = "$version"
+          grep -q "Version = \"$version\"" server/internal/config/config.go
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          short_sha="${GITHUB_SHA:0:12}"
+          echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
+          echo "tag=dev-$version" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Validate source and dependencies
         working-directory: server
         shell: bash
         run: |
@@ -411,37 +77,257 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
           "$(go env GOPATH)/bin/govulncheck" ./...
 
-      - name: Validate browser, Compose, and images
-        shell: bash
+      - name: Verify browser syntax
         run: |
-          set -euo pipefail
           node --check web/static/app.js
           node --check web/static/compat-010601.js
           node --check web/static/bug.js
-          cp .env.example .env
-          docker compose config --quiet
-          rm -f .env
-          docker build --pull --tag sovereign-conquest:prepare .
-          docker build --pull --tag sovereign-conquest-api:prepare ./server
-          docker build --pull --tag sovereign-conquest-web:prepare ./web
 
-      - name: Commit validated source preparation
+      - name: Build local candidate image
+        run: docker build --pull --tag sovereign-conquest:dev-candidate .
+
+      - name: Scan local candidate
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: sovereign-conquest:dev-candidate
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: Generate SPDX SBOM
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: sovereign-conquest:dev-candidate
+          format: spdx-json
+          output: sovereign-conquest.spdx.json
+          exit-code: '0'
+
+      - name: Smoke-test local candidate
         shell: bash
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
-          git add -- \
-            VERSION CHANGELOG.md README.md .env.example Dockerfile \
-            server/Dockerfile server/internal/config/config.go \
-            server/internal/build/root_dockerfile_test.go \
-            server/internal/build/web_contract_test.go \
-            web/static/index.html web/static/bug.html \
-            docs/RELEASE_NOTES_01.06.02_DEV.md \
-            docs/DEV_DEPLOYMENT_01.06.02.md \
-            docs/SECURITY_REVIEW_01.06.02.md \
-            docs/VALIDATION_01.06.02.md \
-            docs/COMMIT_NOTES_01.06.02.md
-          git diff --cached --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'release(dev): prepare 01.06.02 candidate'
-          git push origin HEAD:release-01.06.01-fixes
+          network="sc-local-$GITHUB_RUN_ID"
+          db="sc-local-db-$GITHUB_RUN_ID"
+          app="sc-local-app-$GITHUB_RUN_ID"
+          cleanup() {
+            docker rm -f "$app" "$db" >/dev/null 2>&1 || true
+            docker network rm "$network" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker network create "$network" >/dev/null
+          docker run -d --name "$db" --network "$network" \
+            -e POSTGRES_USER=sovereign \
+            -e POSTGRES_PASSWORD=DevelopmentOnlyDatabasePassword \
+            -e POSTGRES_DB=sovereign_conquest \
+            postgres:16-alpine >/dev/null
+          for attempt in $(seq 1 60); do
+            docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null
+          database_url="postgres://sovereign:DevelopmentOnlyDatabasePassword@$db:5432/sovereign_conquest?sslmode=disable"
+          docker run -d --name "$app" --network "$network" -p 127.0.0.1:18080:8080 \
+            -e APP_ENV=development \
+            -e "DATABASE_URL=$database_url" \
+            -e JWT_SECRET='Development-Only-JWT-Secret-For-Release-Validation-2026' \
+            -e ADMIN_SECRET='Development-Only-Administrator-Secret-For-Validation' \
+            -e INITIAL_ADMIN_USERNAME=admin \
+            -e INITIAL_ADMIN_PASSWORD='Development-Only-Admin-Password-2026!' \
+            -e UNIVERSE_SECTORS=40 \
+            -e PORT_TICK_SECONDS=0 \
+            -e PLANET_TICK_SECONDS=0 \
+            -e EVENT_TICK_SECONDS=0 \
+            -e PROTECTORATE_TICK_SECONDS=0 \
+            sovereign-conquest:dev-candidate >/dev/null
+          for attempt in $(seq 1 90); do
+            curl -fsS http://127.0.0.1:18080/api/readyz >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18080/api/readyz >/dev/null || { docker logs "$app"; exit 1; }
+          curl -fsS http://127.0.0.1:18080/api/livez | jq -e --arg version "$VERSION" '.ok == true and .version == $version' >/dev/null
+          curl -fsS http://127.0.0.1:18080/api/version | jq -e --arg version "$VERSION" '.version == $version' >/dev/null
+          curl -fsS http://127.0.0.1:18080/ | grep -F "$VERSION" >/dev/null
+          player="smoke${GITHUB_RUN_ID: -6}"
+          registration="$(curl -fsS -H 'Content-Type: application/json' \
+            -d "{\"username\":\"$player\",\"password\":\"Development-Only-Player-Password-2026!\"}" \
+            http://127.0.0.1:18080/api/register)"
+          token="$(echo "$registration" | jq -er '.token')"
+          curl -fsS -H "Authorization: Bearer $token" http://127.0.0.1:18080/api/state | jq -e '.state != null' >/dev/null
+          curl -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+            -d '{"type":"SCAN"}' http://127.0.0.1:18080/api/command >/dev/null
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push development image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ steps.release.outputs.image }}:dev
+            ${{ steps.release.outputs.image }}:dev-${{ steps.release.outputs.version }}
+            ${{ steps.release.outputs.image }}:sha-${{ steps.release.outputs.short_sha }}
+          labels: |
+            org.opencontainers.image.title=Sovereign Conquest
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=dev-release
+          cache-to: type=gha,mode=max,scope=dev-release
+
+      - name: Attest image provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ${{ steps.release.outputs.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Verify anonymous GHCR pull
+        shell: bash
+        env:
+          IMAGE: ${{ steps.release.outputs.image }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          docker logout ghcr.io >/dev/null 2>&1 || true
+          docker image rm "$IMAGE:dev-$VERSION" "$IMAGE:dev" >/dev/null 2>&1 || true
+          clean_config="$(mktemp -d)"
+          trap 'rm -rf "$clean_config"' EXIT
+          DOCKER_CONFIG="$clean_config" docker pull "$IMAGE:dev-$VERSION"
+          docker image inspect "$IMAGE:dev-$VERSION" >/dev/null
+
+      - name: Scan anonymously pulled image
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: ${{ steps.release.outputs.image }}:dev-${{ steps.release.outputs.version }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: Smoke-test anonymously pulled image
+        shell: bash
+        env:
+          IMAGE: ${{ steps.release.outputs.image }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          network="sc-public-$GITHUB_RUN_ID"
+          db="sc-public-db-$GITHUB_RUN_ID"
+          app="sc-public-app-$GITHUB_RUN_ID"
+          cleanup() {
+            docker rm -f "$app" "$db" >/dev/null 2>&1 || true
+            docker network rm "$network" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker network create "$network" >/dev/null
+          docker run -d --name "$db" --network "$network" \
+            -e POSTGRES_USER=sovereign \
+            -e POSTGRES_PASSWORD=PublicPullValidationDatabasePassword \
+            -e POSTGRES_DB=sovereign_conquest \
+            postgres:16-alpine >/dev/null
+          for attempt in $(seq 1 60); do
+            docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec "$db" pg_isready -U sovereign -d sovereign_conquest >/dev/null
+          database_url="postgres://sovereign:PublicPullValidationDatabasePassword@$db:5432/sovereign_conquest?sslmode=disable"
+          docker run -d --name "$app" --network "$network" -p 127.0.0.1:18081:8080 \
+            -e APP_ENV=development \
+            -e "DATABASE_URL=$database_url" \
+            -e JWT_SECRET='Public-Pull-Validation-JWT-Secret-For-Development-Release' \
+            -e INITIAL_ADMIN_PASSWORD='Public-Pull-Validation-Admin-Password-2026!' \
+            -e UNIVERSE_SECTORS=40 \
+            -e PORT_TICK_SECONDS=0 \
+            -e PLANET_TICK_SECONDS=0 \
+            -e EVENT_TICK_SECONDS=0 \
+            -e PROTECTORATE_TICK_SECONDS=0 \
+            "$IMAGE:dev-$VERSION" >/dev/null
+          for attempt in $(seq 1 90); do
+            curl -fsS http://127.0.0.1:18081/api/readyz >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18081/api/readyz >/dev/null || { docker logs "$app"; exit 1; }
+          curl -fsS http://127.0.0.1:18081/api/version | jq -e --arg version "$VERSION" '.version == $version' >/dev/null
+          curl -fsS http://127.0.0.1:18081/ | grep -F "$VERSION" >/dev/null
+          player="public${GITHUB_RUN_ID: -6}"
+          registration="$(curl -fsS -H 'Content-Type: application/json' \
+            -d "{\"username\":\"$player\",\"password\":\"Public-Pull-Player-Password-2026!\"}" \
+            http://127.0.0.1:18081/api/register)"
+          token="$(echo "$registration" | jq -er '.token')"
+          curl -fsS -H "Authorization: Bearer $token" http://127.0.0.1:18081/api/state | jq -e '.state != null' >/dev/null
+          curl -fsS -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+            -d '{"type":"SCAN"}' http://127.0.0.1:18081/api/command >/dev/null
+
+      - name: Write release validation report
+        shell: bash
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          IMAGE: ${{ steps.release.outputs.image }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          cat > dev-release-validation.md <<EOF
+          # Sovereign Conquest Development Release Validation
+
+          - Version: $VERSION
+          - Git tag: $TAG
+          - Source commit: $GITHUB_SHA
+          - Image: $IMAGE:dev-$VERSION
+          - Moving channel tag: $IMAGE:dev
+          - Image digest: $DIGEST
+          - Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          - Unit and regression tests: passed
+          - Race detector: passed
+          - Go vet: passed
+          - govulncheck: zero reachable vulnerabilities
+          - Local container smoke test: passed
+          - Trivy high and critical scan: passed
+          - Anonymous GHCR pull: passed
+          - Publicly pulled container smoke test: passed
+          - Provenance attestation: published
+          EOF
+
+      - name: Upload validation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sovereign-conquest-dev-${{ steps.release.outputs.version }}
+          path: |
+            dev-release-validation.md
+            sovereign-conquest.spdx.json
+          if-no-files-found: error
+
+      - name: Create or update GitHub prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
+          NOTES_FILE: ${{ steps.release.outputs.notes_file }}
+        run: |
+          set -euo pipefail
+          title="Sovereign Conquest $VERSION Development Release"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$title" --notes-file "$NOTES_FILE" --prerelease
+            gh release upload "$TAG" dev-release-validation.md sovereign-conquest.spdx.json --clobber
+          else
+            gh release create "$TAG" dev-release-validation.md sovereign-conquest.spdx.json \
+              --target "$GITHUB_SHA" --title "$title" --notes-file "$NOTES_FILE" --prerelease
+          fi
+          gh release view "$TAG" --json isPrerelease,tagName,targetCommitish,url
