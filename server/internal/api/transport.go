@@ -126,13 +126,14 @@ func (h *transportHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if status == 0 {
 			status = http.StatusOK
 		}
+		// Client addresses remain available for rate limiting and proxy
+		// normalization, but are intentionally excluded from persistent logs.
 		slog.Info("http_request",
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", status,
 			"bytes", recorder.bytes,
 			"duration_ms", time.Since(started).Milliseconds(),
-			"client_ip", clientIP,
 		)
 	}()
 
