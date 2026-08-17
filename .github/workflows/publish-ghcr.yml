@@ -80,7 +80,7 @@ jobs:
         run: docker pull "${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}"
 
       - name: Scan published image
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}
           format: table
