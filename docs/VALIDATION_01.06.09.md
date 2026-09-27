@@ -34,7 +34,7 @@ Docker is not installed in the local execution environment. The actual
 PostgreSQL integration suite was attempted and stopped before running tests with
 `FileNotFoundError: docker`. Container builds, runtime inventory/scanning, and
 application smoke tests require the hosted workflows; they are not represented
-as local passes. Hosted results are recorded below once available.
+as local passes. Hosted results below supply those checks for the published change.
 
 ## Security and compatibility review
 
@@ -58,7 +58,7 @@ Govulncheck reports GO-2026-5932 only for the unused
 `golang.org/x/crypto/openpgp` package at required-module level; no imported
 package or reachable symbol is affected. Existing dependency files remain
 unchanged, and container vulnerability policy remains mandatory without added
-suppressions. Actual fresh container scans are a separate hosted gate.
+suppressions. Fresh container scans passed in hosted Build Validation.
 
 The local profiles deliberately use plaintext database transport and default to
 development. Production still requires TLS plus strong secrets. The official
@@ -75,22 +75,39 @@ rollback artifact. Local Docker cannot verify old registry artifacts.
 
 ## Hosted validation
 
-The user authorized GitHub publication on 2026-09-27 after the initial automatic
-approval review blocked a push under the verification-only request. The local
-Git transport lacks write credentials, so publication uses the connected GitHub
-account and preserves the complete validated tree on `compose-settings-01.06.09`.
-The branch is published in PR #29 at `57b1c3ecdbfce71624baf5ddfa2fe5dcbf3b1723`.
-Initial hosted Build Validation run 36356301198 found that the runner's Compose
-omits false-valued `create_host_path` from normalized JSON. The regression now
-accepts absent/false and still rejects true; the deployment configuration and
-its explicit `create_host_path: false` remain unchanged. Hosted checks rerun on
-the corrected commit. No release image or source tag is yet published.
+Published as [PR #29](https://github.com/paulkakell/sovereign-conquest/pull/29).
+All required branch workflows passed on source commit
+`09c5c7220e306aabc5888d2eb1b6e1dd6c701775`:
 
-Do not infer image publication or deployment from local configuration validation.
-The default 01.06.09 image is not yet published. Use a verified 01.06.08 image as
-an explicit override if inspecting these compatible configuration changes before
-release. Release tagging remains gated on successful CI, Build Validation,
-Database Startup, and Publish GHCR Image at the same current main SHA.
+| Workflow | Evidence and result |
+|---|---|
+| [CI](https://github.com/paulkakell/sovereign-conquest/actions/runs/36356403512) | Full Go/race tests, formatting, module verification, security analysis, release safeguards, recovery tests, and both Compose profiles passed |
+| [Database Startup](https://github.com/paulkakell/sovereign-conquest/actions/runs/36356403494) | All 15 actual PostgreSQL container regressions passed in 43.919 seconds |
+| [Build Validation](https://github.com/paulkakell/sovereign-conquest/actions/runs/36356403509) | Combined/API/web image builds, runtime inventories, vulnerability policies, SBOM exports, both application smoke tests, and CodeQL passed |
+
+The database tests exercised fresh/existing volumes, password changes and rollback,
+legacy trust, unusual identifiers/passwords, failed recovery, idempotency, health,
+and preservation of existing data. Reconciled startups in these tests took
+0.41-1.70 seconds; these are disposable-runner observations, not capacity claims.
+
+The first hosted build found that the runner's Compose omitted false-valued
+`create_host_path` from normalized JSON. The corrected test accepts absent/false
+and still rejects true. Both deployment files retain their explicit
+`create_host_path: false`. All workflows passed after this test correction; no
+application behavior, security gate, or container configuration was relaxed.
+
+The user authorized publication on 2026-09-27 after the initial automatic approval
+review blocked a push under the verification-only request. The connected GitHub
+account published the exact locally validated source tree, followed by the test
+compatibility correction. This evidence update changes documentation only; CI
+reruns on the final pull-request head.
+
+The branch is published; main has not been merged and the 01.06.09 release image
+and tag are not yet published. Use a verified 01.06.08 image as an explicit
+override if inspecting these compatible configuration changes before release.
+Release tagging remains gated on successful CI, Build Validation, Database
+Startup, and Publish GHCR Image at the same current main SHA. No production host
+or user data was accessed or changed during validation.
 
 ## Rollback
 

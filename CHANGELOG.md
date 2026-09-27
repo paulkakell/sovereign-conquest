@@ -37,7 +37,9 @@
   explicitly when adopting the release.
 
 Base: `2afa856cef71dd6f5ea5060425baba43935828be` (v01.06.08, PR #28).
-Reference: requested Compose and environment verification; no separate issue.
+Release pull request: #29; requested Compose and environment verification, no separate issue.
+Hosted CI, all 15 PostgreSQL regressions, container builds/scans, application smoke
+tests, and CodeQL passed on `09c5c7220e306aabc5888d2eb1b6e1dd6c701775`.
 See [configuration](docs/CONFIGURATION.md),
 [release notes](docs/RELEASE_NOTES_01.06.09.md),
 [validation](docs/VALIDATION_01.06.09.md), and

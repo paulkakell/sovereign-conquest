@@ -1,7 +1,7 @@
 # Commit notes for 01.06.09
 
 Local implementation commit: `547f21d`; branch: `compose-settings-01.06.09`.
-GitHub publication was authorized on 2026-09-27; hosted validation follows branch publication.
+Published in PR #29. Hosted validation passed on `09c5c72`; see the validation record.
 
 ```text
 fix(compose): verify deployment settings and require explicit secrets (01.06.09)
