@@ -64,7 +64,8 @@ class DatabaseStartupTests(unittest.TestCase):
         while time.monotonic() < deadline:
             state = docker("inspect", "-f", "{{.State.Status}}", self.container).stdout.strip()
             if state != "running":
-                self.fail("Database exited before readiness: " + docker("logs", self.container).stdout)
+                logs = docker("logs", self.container)
+                self.fail("Database exited before readiness: " + logs.stdout + logs.stderr)
             if raw:
                 # Force TCP: the official init server accepts only Unix sockets.
                 if self.query("SELECT 1", check=False).returncode == 0:
@@ -182,6 +183,17 @@ class DatabaseStartupTests(unittest.TestCase):
         self.assertTrue(stored.startswith("SCRAM-SHA-256$"))
         logs = docker("logs", self.container).stdout
         self.assertIn('"event":"reconciling_database_and_role"', logs)
+        self.assertNotEqual(self.query("SELECT 1", password="wrong", check=False).returncode, 0)
+        self.assertEqual(self.query("SELECT count(*) FROM pg_hba_file_rules WHERE error IS NOT NULL").stdout.strip(), "0")
+
+    def test_unrelated_disabled_administrator_is_not_enabled(self):
+        self.start(raw=True)
+        self.query("ALTER ROLE sovereign NOLOGIN;")
+        self.stop()
+        self.start(user="another_user", database="another_database", ready=False)
+        self.assert_failed_start()
+        logs = docker("logs", self.container)
+        self.assertIn('"event":"administrator_login_disabled"', logs.stdout + logs.stderr)
 
     def test_unrepairable_database_fails_closed_and_preserves_data(self):
         self.start()

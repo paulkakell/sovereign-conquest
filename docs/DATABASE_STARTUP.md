@@ -12,6 +12,8 @@ volumes remain compatible. Keep the repository's `docker/db/` directory beside
    `/docker-entrypoint-initdb.d` hooks still run once on an empty volume.
 3. Read the cluster's original administrator name with PostgreSQL stopped. This
    supports volumes initialized with a different or renamed `POSTGRES_USER`.
+   A disabled bootstrap login is enabled only when it is the configured login
+   being repaired. An unrelated disabled administrator causes a clear failure.
 4. Start a temporary server accessible through a private Unix socket and
    loopback TCP. Require SCRAM password authentication for the check.
 5. Connect to `POSTGRES_DB` using `POSTGRES_USER` and `POSTGRES_PASSWORD` and run
@@ -19,7 +21,9 @@ volumes remain compatible. Keep the repository's `docker/db/` directory beside
 6. Otherwise create the missing login or database, set the configured password,
    enable login, clear password expiry, and grant database connection permission.
    Recheck the credentials, then stop the temporary server.
-7. Start PostgreSQL normally. The Compose health check requires the completion
+7. Start PostgreSQL with a runtime HBA wrapper requiring SCRAM on IPv4 loopback
+   before including the original HBA file. The persistent file is not rewritten,
+   and its relative includes still work. The Compose health check requires the completion
    marker and a successful authenticated query. The API waits for database health.
 
 The scripts never drop databases, tables, or roles. New roles created on existing
@@ -91,8 +95,10 @@ or unsuccessful repair stop startup without marking the database healthy. Take
 a backup and investigate the reported event; the wrapper does not remove lock
 files, disable database protections, or delete data to force recovery. Custom
 PostgreSQL ports/listener overrides are outside this Compose profile, which uses
-5432. Existing persistent HBA settings are retained for the final server; legacy
-trust rules should be replaced with password authentication by the operator.
+5432. Local TCP connections must supply a valid SCRAM password, including health
+checks. Other persistent HBA settings are retained; legacy trust rules for remote
+clients should be replaced with password authentication by the operator. The
+resolved HBA path must be absolute without double quotes or line breaks.
 
 ## Rollback
 

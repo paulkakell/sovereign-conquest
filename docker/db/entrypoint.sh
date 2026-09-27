@@ -66,11 +66,12 @@ if [[ -z $DATABASE_ALREADY_EXISTS ]]; then
 fi
 
 # Discover the original bootstrap administrator even if POSTGRES_USER changed.
-# Single-user mode is used only to READ its name, while no server is running.
+# Read its name while no server is running.
 # No password, supplied identifier, or data-changing SQL enters this command.
 if ! postgres --single -D "$PGDATA" -c logging_collector=off -c log_statement=none template1 \
     >"$work/discovery.log" 2>&1 <<SQL
 COPY (SELECT encode(convert_to(rolname, 'UTF8'), 'hex') FROM pg_roles WHERE oid = 10 AND rolsuper) TO '$work/admin.hex';
+COPY (SELECT rolcanlogin FROM pg_roles WHERE oid = 10 AND rolsuper) TO '$work/admin-login';
 SQL
 then
     fail administrator_discovery_failed
@@ -80,6 +81,18 @@ hex=$(<"$work/admin.hex")
 [[ $hex =~ ^([0-9a-f]{2})+$ ]] || fail administrator_discovery_failed
 printf -v admin '%b' "$(printf '%s' "$hex" | sed 's/../\\x&/g')"
 export SC_DB_ADMIN=$admin SC_DB_SOCKET=$work
+
+# A NOLOGIN bootstrap role cannot connect even through a trusted private socket.
+# Only enable it when it is the exact login the operator asked us to repair.
+# Never enable an unrelated disabled administrator as a side effect.
+if [[ $(<"$work/admin-login") == f ]]; then
+    [[ $admin == "$POSTGRES_USER" ]] || fail administrator_login_disabled
+    log enabling_configured_bootstrap_login
+    postgres --single -D "$PGDATA" -c logging_collector=off -c log_statement=none template1 \
+        >"$work/enable-admin.log" 2>&1 <<'SQL'
+DO $$ DECLARE admin_name name; BEGIN SELECT rolname INTO STRICT admin_name FROM pg_roles WHERE oid = 10 AND rolsuper; EXECUTE format('ALTER ROLE %I LOGIN', admin_name); END $$;
+SQL
+fi
 
 # Only the database OS user can access this socket directory. TCP is loopback
 # only and always requires SCRAM, even when an old volume's HBA uses trust.
@@ -105,6 +118,16 @@ fi
 bash /opt/sc-db/check.sh --startup || fail credential_verification_failed
 pg_ctl -D "$PGDATA" -m fast -w -t 60 stop >/dev/null
 server_started=false
+# The official initdb defaults can trust localhost. Require SCRAM for health
+# probes in the final server too. Include the existing HBA in place so its
+# relative includes still resolve correctly; never rewrite the persistent file.
+original_hba=$(postgres -D "$PGDATA" "${@:2}" -C hba_file)
+[[ $original_hba == /* && $original_hba != *[$'\r\n"']* ]] || fail unsupported_hba_path
+runtime_hba=/var/run/postgresql/sc-runtime-pg_hba.conf
+{
+    printf 'host all all 127.0.0.1/32 scram-sha-256\n'
+    printf 'include "%s"\n' "$original_hba"
+} >"$runtime_hba"
 rm -rf "$work"
 trap - EXIT INT TERM
 unset SC_DB_ADMIN SC_DB_SOCKET
@@ -112,4 +135,4 @@ log credentials_verified
 # Health checks cannot succeed against the temporary server above.
 touch "$ready"
 unset "${!POSTGRES_@}"
-exec postgres "${@:2}"
+exec postgres "${@:2}" -c "hba_file=$runtime_hba"

@@ -47,6 +47,10 @@ use psql identifier/literal quoting with values from the environment. The
 temporary administrative socket is private to the database OS user. Temporary
 TCP binds only loopback and uses SCRAM. Public readiness cannot succeed until
 reconciliation finishes. Failed repair does not permit normal database startup.
+The final server also requires SCRAM on IPv4 loopback through a runtime HBA
+wrapper that includes the persistent HBA without changing it. Only the exact
+configured bootstrap role can have NOLOGIN repaired offline; unrelated disabled
+administrator accounts remain disabled.
 No database/table/role is dropped. Existing privileges and ownership are retained;
 new repair-created roles are ordinary logins. Existing bootstrap superuser
 behavior is retained for compatibility with the official image.
