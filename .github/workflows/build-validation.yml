@@ -51,7 +51,7 @@ jobs:
         shell: bash
         env:
           SC_IMAGE: sovereign-conquest:validation
-          SC_EXPECTED_VERSION: '01.06.03'
+          SC_EXPECTED_VERSION: '01.06.04'
           SC_HOST_PORT: '18082'
           SC_NAME_PREFIX: validation
           SC_DB_PASSWORD: BuildValidationDatabasePassword
@@ -71,7 +71,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.26.6
+          go-version: 1.27.1
           cache-dependency-path: server/go.sum
 
       - name: Initialize CodeQL
