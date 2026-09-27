@@ -1,0 +1,29 @@
+name: Documentation issue
+description: Report missing, incorrect, or unclear instructions.
+title: "[Docs] "
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Document or page
+      description: Include a link, file path, or heading.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: State the version you were following, or say that you used the current main branch.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is missing or incorrect?
+      description: Describe the task and where the instructions stopped helping. Exclude secrets and private player data.
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Suggested correction or example

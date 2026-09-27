@@ -1,14 +1,27 @@
 # Sovereign Conquest
 
-Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current release is **v01.06.04**.
+Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current release is **v01.06.05**.
 
 ## Current maintenance release
 
-See the [01.06.04 release notes](docs/RELEASE_NOTES_01.06.04.md),
-[validation record](docs/VALIDATION_01.06.04.md), and
-[code review findings](docs/CODE_REVIEW_01.06.04.md). The maintenance release
-consolidates dependency updates; the roadmap implementation packets remain planned.
-Use one API replica until the documented scheduler issue is repaired.
+See the [01.06.05 release notes](docs/RELEASE_NOTES_01.06.05.md),
+[validation record](docs/VALIDATION_01.06.05.md), and
+[existing code review findings](docs/CODE_REVIEW_01.06.04.md). This maintenance
+release adds community contribution forms, funding configuration, and a security
+reporting policy. The roadmap implementation packets remain planned. Use one API
+replica until the documented scheduler issue is repaired.
+
+## Community and support
+
+- [Report a bug, request a feature, or correct documentation](https://github.com/paulkakell/sovereign-conquest/issues/new/choose).
+- [Ask questions, discuss ideas, or share your work](https://github.com/paulkakell/sovereign-conquest/discussions).
+- [Report a vulnerability privately](SECURITY.md).
+- [Sponsorship configuration and community guidance](docs/COMMUNITY.md).
+
+The issue chooser separates actionable reports from help and discussion. Existing
+Discussions categories have forms for announcements, questions, ideas, general
+conversation, and community projects. The funding recipient is `paulkakell`;
+receiving sponsorships requires an active GitHub Sponsors profile.
 
 ## Roadmap
 
@@ -21,11 +34,11 @@ The first milestone addresses database migration coverage, port demand, repeatab
 The repository publishes one combined API and web image:
 
 ```bash
-docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.04
+docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.05
 docker pull ghcr.io/paulkakell/sovereign-conquest:main
 ```
 
-`01.06.04` is the release tag for this version. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
+`01.06.05` is the release tag for this version. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
 
 The publication workflow also emits a source-SHA tag, provenance attestation, high and critical vulnerability scan, and a runtime smoke test of the pushed image.
 
@@ -80,7 +93,7 @@ The former standalone `web` service has been removed. Use `docker compose logs a
 A local source build remains available outside Compose:
 
 ```bash
-docker build -t sovereign-conquest:01.06.04 .
+docker build -t sovereign-conquest:01.06.05 .
 ```
 
 The combined image serves the API and web UI on port 8080. Production mode rejects weak secrets and database connections without transport verification.

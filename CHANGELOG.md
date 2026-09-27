@@ -1,5 +1,33 @@
 # Changelog
 
+## 01.06.05 - 2026-09-27
+
+### Additive
+
+- Add issue forms for bugs, feature requests, and documentation, with links to
+  Q&A, Ideas, and private vulnerability reporting so reports reach the right channel.
+- Add category-matched discussion forms, a support guide, and community examples.
+- Configure the owner's GitHub Sponsors destination in `.github/FUNDING.yml`.
+  Account enrollment and payment acceptance are separate prerequisites.
+- Add `SECURITY.md` with supported-version, private-reporting, and disclosure
+  guidance. Existing Discussions and private reporting were verified enabled.
+
+### Fixes and maintenance
+
+- Close missing repository community-configuration gaps and align release
+  metadata at 01.06.05. No breaking gameplay, API, schema, or configuration change.
+- Add 20 release-publication safeguard tests and require all release tests in CI.
+  Finalization creates the new tag and release only after exact-commit CI, build,
+  and publication gates pass; previous tags remain unchanged.
+- Preserve dependency manifests and vendored sources; no dependency updates.
+
+Base: `d3a8e23c9e7975895d55d21cb8d513821cacc9d9` (v01.06.04, PR #23).
+Release pull request: #24. No separate issue was opened for this repository setup.
+See [release notes](docs/RELEASE_NOTES_01.06.05.md),
+[validation](docs/VALIDATION_01.06.05.md),
+[community guide](docs/COMMUNITY.md), and
+[copyable commit notes](docs/COMMIT_NOTES_01.06.05.md).
+
 ## 01.06.04 - 2026-09-27
 
 ### Additive

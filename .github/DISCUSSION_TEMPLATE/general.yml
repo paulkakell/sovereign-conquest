@@ -1,0 +1,13 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Talk about Sovereign Conquest, share feedback, or introduce yourself.
+        Use Q&A for help and Ideas for proposed game changes. Keep secrets and private player information out of posts.
+  - type: textarea
+    id: topic
+    attributes:
+      label: What would you like to discuss?
+      description: Give enough context for other players and contributors to join the conversation.
+    validations:
+      required: true

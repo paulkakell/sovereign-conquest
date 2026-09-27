@@ -1,0 +1,29 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Start with the player experience. Check the [roadmap](https://github.com/paulkakell/sovereign-conquest/blob/main/docs/ROADMAP.md)
+        and existing ideas. Discussion does not mean a feature has been approved or scheduled.
+  - type: textarea
+    id: opportunity
+    attributes:
+      label: What experience could be better?
+      description: Describe a concrete moment from playing or operating the game.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: Explain the change and how it helps.
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Balance and tradeoffs
+      description: Consider new players, time zones, player choice, fairness, and returning after an absence. Report security exploits privately.
+  - type: input
+    id: related
+    attributes:
+      label: Related roadmap packet or discussion

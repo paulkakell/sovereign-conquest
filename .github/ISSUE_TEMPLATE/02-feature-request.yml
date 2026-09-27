@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose a concrete change with a player benefit and acceptance criteria.
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [roadmap](https://github.com/paulkakell/sovereign-conquest/blob/main/docs/ROADMAP.md) first.
+        Use [Ideas](https://github.com/paulkakell/sovereign-conquest/discussions/categories/ideas)
+        to explore an early concept or balance question before opening an implementation request.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Player or operator problem
+      description: Who encounters the problem, and what happens today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the experience and include a specific example.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable outcomes that would make this change complete.
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Alternatives and tradeoffs
+      description: Consider pacing, fairness, accessibility, economy balance, and server cost. Send exploitable security details privately.
+  - type: input
+    id: roadmap
+    attributes:
+      label: Related roadmap packet, discussion, or issue
+      placeholder: "SC-I04, discussion URL, or issue number"

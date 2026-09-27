@@ -1,0 +1,29 @@
+title: "[Announcement] "
+body:
+  - type: markdown
+    attributes:
+      value: Share release news, project decisions, and planned maintenance. Link published release notes and identify proposals clearly.
+  - type: input
+    id: audience
+    attributes:
+      label: Who is affected?
+      placeholder: "Players, server operators, or contributors"
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What is changing?
+    validations:
+      required: true
+  - type: textarea
+    id: next_steps
+    attributes:
+      label: Timing and required action
+      description: Include dates with a time zone, or state that no action is required.
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: Release notes and related links
