@@ -37,7 +37,11 @@ candidate version is 01.06.08. Its eventual Git tag is `v01.06.08`, and its imag
 tag is `01.06.08`, gated on successful workflows for the exact commit.
 Previous tags remain unchanged.
 
-See [validation](VALIDATION_01.06.08.md) for actual results and unavailable gates,
+All 15 PostgreSQL integration tests, CI, container builds and scans, application
+smoke tests, and CodeQL passed on the code commit recorded in validation.
+GitHub's separate AI review could not start because its configured model was
+unsupported. See [validation](VALIDATION_01.06.08.md) for exact workflow evidence,
 [commit notes](COMMIT_NOTES_01.06.08.md), and the recovery guide for rollback.
-Baseline: `c3de81af4d471e7cf327e6f43df96ff321a6b04a` (v01.06.06, PR #25).
-Prior local work: `a44c249` and `9b0d400`. No separate issue was opened.
+Baseline: `c3de81af4d471e7cf327e6f43df96ff321a6b04a` (v01.06.06, PR #26).
+Prior local work: `a44c249` and `9b0d400`. Release pull request: #28. Includes the startup hardening from PR #27.
+No separate issue was opened.

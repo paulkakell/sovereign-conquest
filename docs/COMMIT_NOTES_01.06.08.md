@@ -12,7 +12,8 @@ fix(db): recover existing-volume credentials and integrate startup checks (01.06
 - Update version, changelog, deployment instructions, release notes, and rollback.
 
 Fix/additive; no schema, API, gameplay, or dependency format change.
-Container integration/build/security gates remain pending where Docker is unavailable.
-Base: c3de81af4d471e7cf327e6f43df96ff321a6b04a (v01.06.06, PR #25).
+All 15 PostgreSQL integration tests, CI, builds, scans, smoke tests, and CodeQL passed.
+The separate GitHub AI review was unavailable due to an unsupported-model service error.
+Base: c3de81af4d471e7cf327e6f43df96ff321a6b04a (v01.06.06, PR #26).
 Reuses local work a44c249 and 9b0d400. No separate issue reference.
 ```

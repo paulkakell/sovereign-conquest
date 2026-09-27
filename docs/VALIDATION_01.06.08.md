@@ -1,6 +1,7 @@
 # Validation for 01.06.08
 
-Date: 2026-09-27. Status: local candidate, not published or deployed.
+Date: 2026-09-27. PR: #28. Code validation passed on
+`981dba92de46a2ea40239987a0e75e653cca5cd7`. Deployment to the user's host is separate.
 Baseline: `c3de81af4d471e7cf327e6f43df96ff321a6b04a` (v01.06.06).
 Recovered local work: `a44c249`, `9b0d400`, integrated without replacing the
 01.06.06 scratch API runtime or its security/build/publication gates.
@@ -30,29 +31,36 @@ No supplied real credential was written into source, tests, or documentation.
 Compose escapes dollar signs when serializing a reusable config; validation
 accounted for that representation without changing literal credential inputs.
 
-## Unavailable gates
+## Hosted validation and release gates
 
-The PostgreSQL container integration suite was invoked and stopped before any
-tests because the Docker executable is unavailable. No database integration
-success is claimed. Docker image builds, runtime inventory, image vulnerability
-scans, API/database smoke tests, and measured startup/rollback timings therefore
-remain pending. Hosted CodeQL and GitHub workflow gates have not run for this
-candidate. No production host or actual conquest data was accessed.
+Docker was unavailable during initial local validation. GitHub Actions then
+completed the missing checks on commit `981dba92de46a2ea40239987a0e75e653cca5cd7`:
 
-Run `python3 scripts/test-db-startup.py` in a Docker environment before deploying
-the startup wrapper. Its 15 tests use uniquely named disposable volumes and cover
-fresh/existing databases, missing roles/databases, password rotation and rollback,
-quoted values, legacy HBA trust, idempotency, expired/disabled logins, retained
-rows, failed repair, readiness, abrupt restart, and the two live-repair scenarios.
-The script enforces a 90-second readiness bound per startup; measured performance
-is unavailable here. The full suite is required in the publication workflow.
+| Workflow | Evidence and result |
+| --- | --- |
+| [CI](https://github.com/paulkakell/sovereign-conquest/actions/runs/36351109037) | Passed full Go/race, lint, dependency/security, release, recovery, and Compose checks |
+| [Database Startup](https://github.com/paulkakell/sovereign-conquest/actions/runs/36351109083) | All 15 actual PostgreSQL container tests passed in 45.395 seconds |
+| [Build Validation](https://github.com/paulkakell/sovereign-conquest/actions/runs/36351109122) | Fresh combined/API/web builds, runtime inventory, vulnerability scans, SBOM export, both application smoke tests, and CodeQL passed |
 
-Full image builds and application smoke tests are retained in Build Validation.
+The database tests cover fresh/existing databases, missing roles/databases,
+password rotation and rollback, quoted values, legacy HBA trust, idempotency,
+expired/disabled logins, retained rows, failed repair, readiness, abrupt restart,
+and both live-repair scenarios. The 16 measured reconciled startups took
+0.41 to 1.73 seconds on the GitHub runner with disposable volumes. This is a
+regression timing observation, not a production capacity estimate. The full
+suite is also required in the publication workflow.
+
+GitHub's separate AI code-scanning review failed to start because its service
+returned HTTP 400: requested model not supported. Run 36351111602 records this
+service failure. It produced no code findings. CodeQL and Gosec completed
+successfully. No security configuration or check was disabled.
+
+The final documentation update records these results without changing tested
+runtime code. All applicable workflows rerun on its exact commit before merge.
 The release finalizer requires CI, Build Validation, Publish GHCR Image, and
 Database Startup for the exact main commit, preserves previous tags, and creates
-`v01.06.08` only after those gates succeed. The source candidate is traceable by
-its local branch `release-01.06.08-db-recovery` and Git commits. The known published
-baseline remains `v01.06.06`; no 01.06.08 tag or image is claimed.
+`v01.06.08` only after those gates succeed. The prior release is `v01.06.06`.
+No production host or actual conquest data was accessed during validation.
 
 ## Security, compatibility, and operations review
 
@@ -62,9 +70,9 @@ the container environment, quoted by psql, and excluded from process arguments.
 The live-repair command always sets the configured password because localhost
 trust can make a password check succeed incorrectly. It does not change HBA
 or grant additional role privileges. A successful TCP query also confirms DB
-access. The startup wrapper enforces SCRAM for the final loopback health probe. The startup
-wrapper uses a private administrator socket and SCRAM on loopback; other retained HBA
-settings govern non-loopback connections in the final server. Existing data and ownership are retained.
+access. The startup wrapper uses a private administrator socket and enforces
+SCRAM for the final loopback health probe. Other retained HBA settings govern
+non-loopback connections. Existing data and ownership are retained.
 
 Authorization, API validation, user password hashing, game queries, and request
 logging are unchanged. The API retains its scratch runtime, non-root user,
@@ -77,7 +85,7 @@ Dependency manifests and vendored sources are unchanged. Govulncheck reports
 GO-2026-5932 only for the unused `golang.org/x/crypto/openpgp` package within an
 existing required module; it reports zero findings in imported packages or
 reachable symbols. No new dependency or vulnerability suppression was added.
-Container scanning remains pending and is not represented by the Go scan.
+Container scanning passed separately in the hosted Build Validation workflow.
 
 No schema migration, data-format conversion, or gameplay API change occurs.
 Root Compose retains both original distinct host-port options. The tailored

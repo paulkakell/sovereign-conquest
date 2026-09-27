@@ -29,7 +29,10 @@
 - The tailored standalone profile uses WEB_PORT only; root Compose retains both
   existing port options. Database scripts must be installed with the new profile.
 
-Base: `c3de81af4d471e7cf327e6f43df96ff321a6b04a` (v01.06.06, PR #25).
+Base: `c3de81af4d471e7cf327e6f43df96ff321a6b04a` (v01.06.06, PR #26).
+Release pull request: #28; incorporates startup hardening from #27.
+GitHub validated all 15 database integration tests, CI, container builds/scans,
+application smoke tests, and CodeQL on `981dba92de46a2ea40239987a0e75e653cca5cd7`.
 Prior local implementation: `a44c249`, `9b0d400`; no separate issue opened.
 See [release notes](docs/RELEASE_NOTES_01.06.08.md),
 [validation](docs/VALIDATION_01.06.08.md),
