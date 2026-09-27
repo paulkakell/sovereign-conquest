@@ -50,13 +50,17 @@ func TestGHCRPublishWorkflowBuildsAndValidatesReleaseImage(t *testing.T) {
 		"pull: true",
 		"trivy convert --format cyclonedx",
 		"actions/upload-artifact@v4",
+		"docker buildx imagetools inspect \"$candidate\" --format '{{json .Manifest}}'",
+		"digest=\"$(jq -er '.digest' container-security/published-descriptor.json)\"",
+		"docker buildx imagetools inspect \"$IMAGE@$digest\" --raw",
+		"'.config.digest == $validated_id' container-security/published-manifest.json",
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Fatalf("GHCR publish workflow missing %q", want)
 		}
 	}
 
-	for _, forbidden := range []string{"push: true", "ignore-unfixed: true", "continue-on-error: true"} {
+	for _, forbidden := range []string{"push: true", "ignore-unfixed: true", "continue-on-error: true", "docker push --quiet"} {
 		if strings.Contains(workflow, forbidden) {
 			t.Fatalf("publish workflow permits unsafe pre-validation behavior: %q", forbidden)
 		}
@@ -84,6 +88,22 @@ func TestGHCRPublishWorkflowBuildsAndValidatesReleaseImage(t *testing.T) {
 	if !strings.Contains(workflow, "validated_id=\"$(jq -er '.image_id' container-security/combined-inventory.json)\"") ||
 		!strings.Contains(workflow, "[[ \"$(docker image inspect --format '{{.Id}}' \"$candidate\")\" == \"$validated_id\" ]]") {
 		t.Fatal("published image must match the image whose inventory was validated")
+	}
+	previous = -1
+	for _, command := range []string{
+		"docker push \"$candidate\"",
+		"docker buildx imagetools inspect \"$candidate\"",
+		"docker buildx imagetools inspect \"$IMAGE@$digest\" --raw",
+		"'.config.digest == $validated_id'",
+		"docker tag \"$candidate\" \"$IMAGE:$VERSION\"",
+		"docker push \"$IMAGE:$VERSION\"",
+		"docker push \"$IMAGE:main\"",
+	} {
+		index := strings.Index(workflow, command)
+		if index <= previous {
+			t.Fatalf("release aliases must follow registry verification; missing or out of order: %q", command)
+		}
+		previous = index
 	}
 
 	legacyPath := filepath.Join(repoRoot, ".github", "workflows", "docker-image.yml")

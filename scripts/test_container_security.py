@@ -3,9 +3,14 @@
 import copy
 import importlib.util
 import io
+import json
+import os
 import pathlib
+import shutil
 import struct
+import subprocess
 import tarfile
+import tempfile
 import unittest
 
 spec = importlib.util.spec_from_file_location("container_security", pathlib.Path(__file__).with_name("container-security-check.py"))
@@ -202,6 +207,101 @@ class VulnerabilityTests(unittest.TestCase):
             with self.subTest(report=report):
                 with self.assertRaises(ValueError):
                     security.check_vulnerabilities(report)
+
+
+@unittest.skipUnless(shutil.which("jq"), "The publication workflow requires jq")
+class PublicationWorkflowTests(unittest.TestCase):
+    def run_publication(self, local_id=None, remote_id=None, registry_digest=None):
+        repo = pathlib.Path(__file__).resolve().parents[1]
+        workflow = (repo / ".github/workflows/publish-ghcr.yml").read_text()
+        step = workflow.split("      - name: Push validated release image\n", 1)[1]
+        step = step.split("\n      - name:", 1)[0]
+        block = step.split("        run: |\n", 1)[1]
+        shell = "\n".join(line[10:] for line in block.splitlines())
+        validated_id = "sha256:" + "a" * 64
+        expected_digest = "sha256:" + "b" * 64
+        with tempfile.TemporaryDirectory(prefix="sc-publication-test-") as directory:
+            root = pathlib.Path(directory)
+            evidence = root / "container-security"
+            evidence.mkdir()
+            (evidence / "combined-inventory.json").write_text(json.dumps({"image_id": validated_id}))
+            docker = root / "docker"
+            docker.write_text("""#!/usr/bin/env python3
+import json
+import os
+import sys
+args = sys.argv[1:]
+with open(os.environ["MOCK_DOCKER_LOG"], "a") as log:
+    log.write(json.dumps(args) + "\\n")
+if args[:2] == ["image", "inspect"]:
+    print(os.environ["MOCK_LOCAL_ID"])
+elif args[:3] == ["buildx", "imagetools", "inspect"]:
+    if args[-1] == "--raw":
+        print(json.dumps({"schemaVersion": 2, "config": {"digest": os.environ["MOCK_REMOTE_ID"]}}))
+    else:
+        print(json.dumps({"digest": os.environ["MOCK_REGISTRY_DIGEST"]}))
+elif args[0] == "push":
+    # Docker quiet mode prints the image reference, not the manifest digest.
+    print(args[-1])
+elif args[0] != "tag":
+    sys.exit("Unexpected Docker command: " + repr(args))
+""")
+            docker.chmod(0o755)
+            env = os.environ.copy()
+            env.update({
+                "PATH": str(root) + os.pathsep + env["PATH"],
+                "IMAGE": "ghcr.io/example/sovereign-conquest",
+                "VERSION": "01.06.06", "SHORT_SHA": "abc123",
+                "GITHUB_OUTPUT": str(root / "github-output"),
+                "MOCK_DOCKER_LOG": str(root / "docker-calls"),
+                "MOCK_LOCAL_ID": local_id or validated_id,
+                "MOCK_REMOTE_ID": remote_id or validated_id,
+                "MOCK_REGISTRY_DIGEST": registry_digest or expected_digest,
+            })
+            process = subprocess.run(["bash", "-c", shell], cwd=root, env=env, text=True, capture_output=True)
+            calls = [json.loads(line) for line in (root / "docker-calls").read_text().splitlines()]
+            outputs = (root / "github-output").read_text() if (root / "github-output").exists() else ""
+            published = (evidence / "published-digest.txt").read_text() if (evidence / "published-digest.txt").exists() else ""
+            return process, calls, outputs, published
+
+    def test_push_reference_output_is_ignored_and_registry_digest_is_published(self):
+        process, calls, outputs, published = self.run_publication()
+        self.assertEqual(process.returncode, 0, process.stderr)
+        digest = "sha256:" + "b" * 64
+        self.assertEqual(outputs, f"digest={digest}\n")
+        self.assertEqual(published, f"ghcr.io/example/sovereign-conquest@{digest}\n")
+        pushes = [call[-1] for call in calls if call[0] == "push"]
+        self.assertEqual(pushes, ["ghcr.io/example/sovereign-conquest:sha-abc123",
+                                 "ghcr.io/example/sovereign-conquest:01.06.06",
+                                 "ghcr.io/example/sovereign-conquest:main"])
+        raw_index = next(index for index, call in enumerate(calls) if call[-1] == "--raw")
+        tag_index = next(index for index, call in enumerate(calls) if call[0] == "tag")
+        self.assertLess(raw_index, tag_index)
+
+    def test_registry_configuration_mismatch_blocks_release_aliases(self):
+        process, calls, outputs, published = self.run_publication(remote_id="sha256:" + "c" * 64)
+        self.assertNotEqual(process.returncode, 0)
+        self.assertIn("does not match", process.stderr)
+        self.assertEqual([call[-1] for call in calls if call[0] == "push"],
+                         ["ghcr.io/example/sovereign-conquest:sha-abc123"])
+        self.assertFalse(any(call[0] == "tag" for call in calls))
+        self.assertEqual(outputs + published, "")
+
+    def test_invalid_registry_digest_blocks_release_aliases(self):
+        for digest in ("not-a-digest", "sha256:1234", "ghcr.io/example/image:tag"):
+            with self.subTest(digest=digest):
+                process, calls, outputs, published = self.run_publication(registry_digest=digest)
+                self.assertNotEqual(process.returncode, 0)
+                self.assertEqual([call[-1] for call in calls if call[0] == "push"],
+                                 ["ghcr.io/example/sovereign-conquest:sha-abc123"])
+                self.assertFalse(any(call[0] == "tag" for call in calls))
+                self.assertEqual(outputs + published, "")
+
+    def test_changed_local_image_blocks_every_push(self):
+        process, calls, outputs, published = self.run_publication(local_id="sha256:" + "d" * 64)
+        self.assertNotEqual(process.returncode, 0)
+        self.assertFalse(any(call[0] in {"tag", "push"} for call in calls))
+        self.assertEqual(outputs + published, "")
 
 
 if __name__ == "__main__":

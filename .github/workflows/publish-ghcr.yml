@@ -159,10 +159,17 @@ jobs:
           candidate="$IMAGE:sha-$SHORT_SHA"
           validated_id="$(jq -er '.image_id' container-security/combined-inventory.json)"
           [[ "$(docker image inspect --format '{{.Id}}' "$candidate")" == "$validated_id" ]]
+          docker push "$candidate"
+          docker buildx imagetools inspect "$candidate" --format '{{json .Manifest}}' > container-security/published-descriptor.json
+          digest="$(jq -er '.digest' container-security/published-descriptor.json)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          docker buildx imagetools inspect "$IMAGE@$digest" --raw > container-security/published-manifest.json
+          if ! jq --exit-status --arg validated_id "$validated_id" '.config.digest == $validated_id' container-security/published-manifest.json >/dev/null; then
+            printf 'Registry manifest does not match the validated image configuration.\n' >&2
+            exit 1
+          fi
           docker tag "$candidate" "$IMAGE:$VERSION"
           docker tag "$candidate" "$IMAGE:main"
-          digest="$(docker push --quiet "$candidate")"
-          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           docker push "$IMAGE:$VERSION"
           docker push "$IMAGE:main"
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
