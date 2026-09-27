@@ -1,12 +1,12 @@
 # Sovereign Conquest Configuration
 
-This guide describes the configuration contract for version 01.06.06.
+This guide describes the configuration contract for version 01.06.08.
 
 ## Deployment profiles
 
 `docker-compose.yml` is a local-development profile. It pulls the combined API and web image from GHCR and does not contain Docker build definitions. PostgreSQL remains a separate service on the internal Compose network.
 
-The default image is `ghcr.io/paulkakell/sovereign-conquest:main`. The `main` tag is moving. Pin `SC_IMAGE` to `ghcr.io/paulkakell/sovereign-conquest:01.06.06` or a verified digest for controlled deployments.
+The default image is `ghcr.io/paulkakell/sovereign-conquest:main`. The `main` tag is moving. Pin `SC_IMAGE` to a published release or verified digest for controlled deployments. The `01.06.08` image is published after its release gates pass.
 
 The Compose profile uses local database transport and publishes loopback-only development ports. Do not expose it directly to the public Internet.
 
@@ -17,7 +17,7 @@ The active GHCR workflow publishes:
 | Tag | Purpose |
 |---|---|
 | `main` | Moving image for the current default branch |
-| `01.06.06` | Release image for this version |
+| `01.06.08` | Release image; published after successful release gates |
 | `sha-<source-sha>` | Source-specific traceability |
 
 The candidate image is scanned and smoke-tested against fresh PostgreSQL before public tags move. The same validated image is pushed and attested. Scans include unfixed vulnerabilities and explicitly reject every CVE listed in the 01.06.06 security review, regardless of severity.
@@ -31,7 +31,12 @@ The candidate image is scanned and smoke-tested against fresh PostgreSQL before 
 | `WEB_PORT` | `3000` | Browser-facing host port |
 | `API_PORT` | `8080` | Compatibility host port for direct API access |
 
-Both host ports reach port 8080 in the same combined container. The API remains available below `/api` on either port.
+Keep WEB_PORT and API_PORT distinct in the root profile. The tailored
+`deploy/docker-compose.bind.yml` profile uses WEB_PORT only, defaulting to 5000,
+and keeps the supplied conquest data path and networks. See
+[recovery and installation](DB_RECOVERY_01.06.08.md).
+
+Both root-profile host ports reach port 8080 in the same combined container. The API remains available below `/api` on either port.
 
 Update a Compose deployment with:
 
@@ -41,6 +46,20 @@ docker compose up -d --remove-orphans
 ```
 
 The old standalone `web` service no longer exists. Operational commands should target the `api` service.
+
+## Database startup settings
+
+`POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` are required by Compose
+and checked on every `db` startup, including existing volumes. Keep `docker/db/`
+beside the Compose file. Missing databases/logins and mismatched passwords are
+repaired before the database becomes healthy. Existing rows and ownership remain.
+See [database startup](DATABASE_STARTUP.md) for examples, restrictions, failures,
+and credential rollback.
+
+The API uses `DATABASE_URL=postgres://db:5432/?sslmode=disable` plus `PGUSER`,
+`PGPASSWORD`, and `PGDATABASE` populated from the same Compose values. Passwords
+are passed literally; no URL encoding is needed. Standalone deployments can
+continue to supply their existing full `DATABASE_URL`.
 
 ## Required production settings
 

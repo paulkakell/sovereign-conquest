@@ -47,6 +47,12 @@ jobs:
           bash -n scripts/release-smoke.sh
           python3 -m unittest discover -s scripts -p 'test_container_security.py' -v
 
+      - name: Validate database recovery before publishing candidates
+        run: |
+          shellcheck docker/db/*.sh
+          python3 -m unittest discover -s scripts -p 'test_db_recovery.py' -v
+          python3 scripts/test-db-startup.py
+
       # Load once, validate that exact local image, then push it without rebuilding.
       # Registry provenance is attached explicitly after the validated image is pushed.
       - name: Build combined release candidate
