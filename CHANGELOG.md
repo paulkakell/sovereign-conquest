@@ -1,10 +1,10 @@
 # Changelog
 
-## 01.06.08 - 2026-09-27 (local candidate)
+## 01.06.08 - 2026-09-27
 
 ### Fixes
 
-- Combine the unpublished 01.06.07 database startup work with the published
+- Combine the separately developed 01.06.07 database startup work with the published
   01.06.06 API security fixes. Check and repair credentials on existing volumes
   before marking PostgreSQL healthy, resolving the reported SQLSTATE 28P01 loop.
 - Add a bind-mount deployment profile preserving `/dockershare/containers/conquest/db`

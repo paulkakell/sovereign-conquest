@@ -93,9 +93,9 @@ Use the replacement file as a standalone configuration, not as an override of
 the old Compose file; Compose can merge the old mount and port lists. Keep the
 existing project name `conquest` when updating through a stack manager. The
 external network must already exist, as it did in the supplied configuration.
-The default application image is the existing `01.06.06` release so recovery
-does not depend on an unpublished `01.06.08` image. Override `SC_IMAGE` after a
-new release passes all gates. The database wrapper itself is provided by the
+The default application image is `01.06.08`, published after its release gates
+pass. To use the compatible prior application during rollback, set
+`SC_IMAGE=ghcr.io/paulkakell/sovereign-conquest:01.06.06`. The database wrapper is provided by the
 read-only script mount, not by updating the API image.
 
 Expected DB log events include `checking_credentials`, optionally

@@ -55,8 +55,8 @@ returned HTTP 400: requested model not supported. Run 36351111602 records this
 service failure. It produced no code findings. CodeQL and Gosec completed
 successfully. No security configuration or check was disabled.
 
-The final documentation update records these results without changing tested
-runtime code. All applicable workflows rerun on its exact commit before merge.
+The final metadata update records these results and aligns the tailored
+profile image tag with 01.06.08 without changing tested runtime code. All applicable workflows rerun on its exact commit before merge.
 The release finalizer requires CI, Build Validation, Publish GHCR Image, and
 Database Startup for the exact main commit, preserves previous tags, and creates
 `v01.06.08` only after those gates succeed. The prior release is `v01.06.06`.
@@ -89,8 +89,8 @@ Container scanning passed separately in the hosted Build Validation workflow.
 
 No schema migration, data-format conversion, or gameplay API change occurs.
 Root Compose retains both original distinct host-port options. The tailored
-profile uses only WEB_PORT and defaults to the existing 01.06.06 application
-image. The pgx environment credential behavior is covered by its Go regression.
+profile uses only WEB_PORT and defaults to the 01.06.08 release image. The
+01.06.06 application remains compatible as an explicit rollback override. The pgx environment credential behavior is covered by its Go regression.
 Startup scripts are mounted separately, and a missing script directory fails
 configuration startup. Ongoing DB health performs one `SELECT 1` per five seconds.
 No core gameplay query or request-I/O performance path was altered.

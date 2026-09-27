@@ -33,7 +33,7 @@ schema grants. The earlier removal of API shell/package utilities remains.
 
 The recovery profile can use the existing 01.06.06 application image; updating
 the API alone does not install DB startup scripts. The source/application
-candidate version is 01.06.08. Its eventual Git tag is `v01.06.08`, and its image
+version is 01.06.08. Its Git tag is `v01.06.08`, and its image
 tag is `01.06.08`, gated on successful workflows for the exact commit.
 Previous tags remain unchanged.
 

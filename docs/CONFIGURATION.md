@@ -6,7 +6,7 @@ This guide describes the configuration contract for version 01.06.08.
 
 `docker-compose.yml` is a local-development profile. It pulls the combined API and web image from GHCR and does not contain Docker build definitions. PostgreSQL remains a separate service on the internal Compose network.
 
-The default image is `ghcr.io/paulkakell/sovereign-conquest:main`. The `main` tag is moving. Pin `SC_IMAGE` to a published release or verified digest for controlled deployments. `01.06.08` remains a local candidate until its release gates pass.
+The default image is `ghcr.io/paulkakell/sovereign-conquest:main`. The `main` tag is moving. Pin `SC_IMAGE` to a published release or verified digest for controlled deployments. The `01.06.08` image is published after its release gates pass.
 
 The Compose profile uses local database transport and publishes loopback-only development ports. Do not expose it directly to the public Internet.
 
@@ -17,7 +17,7 @@ The active GHCR workflow publishes:
 | Tag | Purpose |
 |---|---|
 | `main` | Moving image for the current default branch |
-| `01.06.08` | Candidate version; available after successful release gates |
+| `01.06.08` | Release image; published after successful release gates |
 | `sha-<source-sha>` | Source-specific traceability |
 
 The candidate image is scanned and smoke-tested against fresh PostgreSQL before public tags move. The same validated image is pushed and attested. Scans include unfixed vulnerabilities and explicitly reject every CVE listed in the 01.06.06 security review, regardless of severity.
