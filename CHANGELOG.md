@@ -27,7 +27,7 @@
   data, web assets, and Compose hardening remain supported.
 
 Base: `d5bf909aef936ae0f619c3d053b57f3d89c212da` (v01.06.05, PR #24).
-References: the six public CVEs above; no separate issue was opened.
+Release pull request: #25. References: the six public CVEs above; no separate issue was opened.
 See [release notes](docs/RELEASE_NOTES_01.06.06.md),
 [validation](docs/VALIDATION_01.06.06.md),
 [security review](docs/SECURITY_REVIEW_01.06.06.md), and

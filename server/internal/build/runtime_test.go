@@ -29,7 +29,7 @@ func TestAPIRuntimeDoesNotShipOSPackages(t *testing.T) {
 			for _, required := range []string{
 				"COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt",
 				"COPY --from=build /usr/share/zoneinfo/ /usr/share/zoneinfo/",
-				"COPY --from=build --chmod=1777 /out/runtime-tmp/ /tmp/",
+				"COPY --from=build /out/runtime/ /",
 				"COPY --from=build --chown=10001:10001 /out/sovereign-api /app/sovereign-api",
 				"USER 10001:10001",
 				"CMD [\"/app/sovereign-api\", \"healthcheck\"]",
@@ -46,6 +46,11 @@ func TestAPIRuntimeDoesNotShipOSPackages(t *testing.T) {
 			}
 			if !strings.Contains(dockerfile[:lastStage], "RUN update-ca-certificates") {
 				t.Error("runtime CA bundle must include configured custom roots")
+			}
+			for _, required := range []string{"mkdir -p /out/runtime/tmp", "chmod 1777 /out/runtime/tmp"} {
+				if !strings.Contains(dockerfile[:lastStage], required) {
+					t.Errorf("missing temporary-directory preparation: %s", required)
+				}
 			}
 		})
 	}

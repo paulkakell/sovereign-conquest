@@ -47,6 +47,39 @@ def check_elf(stream, name):
     return True
 
 
+def resolve_data_member(members, name):
+    """Follow container links inside the archive, without extracting host paths."""
+    pending = list(pathlib.PurePosixPath(name).parts)
+    resolved = []
+    visited = set()
+    while pending:
+        part = pending.pop(0)
+        if part in ("/", "."):
+            continue
+        if part == "..":
+            require(bool(resolved), f"Runtime data link escapes archive root: {name}")
+            resolved.pop()
+            continue
+        resolved.append(part)
+        current = "/".join(resolved)
+        member = members.get(current)
+        if member is not None and (member.issym() or member.islnk()):
+            require(current not in visited, f"Runtime data link cycle: {name}")
+            visited.add(current)
+            target = pathlib.PurePosixPath(member.linkname)
+            require(bool(member.linkname), f"Empty runtime data link: {current}")
+            pending = list(target.parts) + pending
+            # Tar hardlink targets are archive-relative; symlinks are relative
+            # to their containing directory, or to the container root.
+            if member.islnk() or target.is_absolute():
+                resolved = []
+            else:
+                resolved.pop()
+    member = members.get("/".join(resolved))
+    require(member is not None and member.isfile(), f"Required runtime data is missing: {name}")
+    return member
+
+
 def check_inventory(config, archive):
     require(config.get("User") == "10001:10001", "Runtime must use USER 10001:10001")
     require(config.get("Healthcheck", {}).get("Test") == ["CMD", "/app/sovereign-api", "healthcheck"],
@@ -81,8 +114,7 @@ def check_inventory(config, archive):
         "etc/ssl/certs/ca-certificates.crt": b"-----BEGIN CERTIFICATE-----",
         "usr/share/zoneinfo/Etc/UTC": b"TZif",
     }.items():
-        member = members.get(name)
-        require(member is not None and member.isfile(), f"Required runtime data is missing: {name}")
+        member = resolve_data_member(members, name)
         with archive.extractfile(member) as stream:
             require(signature in stream.read(), f"Required runtime data is invalid: {name}")
     tmp = members.get("tmp")

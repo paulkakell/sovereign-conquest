@@ -4,7 +4,8 @@ FROM golang:1.27.1-alpine3.24 AS build
 WORKDIR /src
 
 RUN apk add --no-cache ca-certificates git tzdata \
-    && mkdir -p /out/runtime-tmp
+    && mkdir -p /out/runtime/tmp \
+    && chmod 1777 /out/runtime/tmp
 COPY server/certs/ /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
@@ -50,7 +51,8 @@ FROM scratch
 WORKDIR /app
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /usr/share/zoneinfo/ /usr/share/zoneinfo/
-COPY --from=build --chmod=1777 /out/runtime-tmp/ /tmp/
+# Copy tmp as a child directory so its sticky/writable mode is preserved.
+COPY --from=build /out/runtime/ /
 COPY --from=build --chown=10001:10001 /out/sovereign-api /app/sovereign-api
 COPY --chown=10001:10001 web/static/ /app/web/
 

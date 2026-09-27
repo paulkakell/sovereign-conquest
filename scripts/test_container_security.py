@@ -47,7 +47,8 @@ class InventoryTests(unittest.TestCase):
             tmp.mode = 0o1777
             archive.addfile(tmp)
             if extra is not None:
-                archive.addfile(extra)
+                for member in extra if isinstance(extra, list) else [extra]:
+                    archive.addfile(member)
         buffer.seek(0)
         with tarfile.open(fileobj=buffer) as archive:
             return security.check_inventory(self.config, archive)
@@ -94,6 +95,66 @@ class InventoryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "Required runtime data"):
                     self.check()
                 self.files[name] = data
+
+    def test_timezone_symlinks_and_hardlinks_resolve_inside_archive(self):
+        name = "usr/share/zoneinfo/Etc/UTC"
+        data = self.files.pop(name)
+        self.files["usr/share/zoneinfo/UTC"] = data
+        for kind, target in ((tarfile.LNKTYPE, "usr/share/zoneinfo/UTC"),
+                             (tarfile.SYMTYPE, "../UTC"),
+                             (tarfile.SYMTYPE, "/usr/share/zoneinfo/UTC")):
+            with self.subTest(kind=kind, target=target):
+                link = tarfile.TarInfo(name)
+                link.type = kind
+                link.linkname = target
+                self.assertEqual(self.check(link)["status"], "passed")
+
+    def test_chained_timezone_links_validate_target_contents(self):
+        name = "usr/share/zoneinfo/Etc/UTC"
+        data = self.files.pop(name)
+        self.files["usr/share/zoneinfo/Zulu"] = data
+        links = []
+        for source, target, kind in ((name, "../UTC", tarfile.SYMTYPE),
+                                     ("usr/share/zoneinfo/UTC", "usr/share/zoneinfo/Zulu", tarfile.LNKTYPE)):
+            link = tarfile.TarInfo(source)
+            link.type = kind
+            link.linkname = target
+            links.append(link)
+        self.assertEqual(self.check(links)["status"], "passed")
+        self.files["usr/share/zoneinfo/Zulu"] = b"invalid timezone data"
+        with self.assertRaisesRegex(ValueError, "Required runtime data is invalid"):
+            self.check(links)
+
+    def test_timezone_link_escape_cycle_and_missing_target_fail(self):
+        name = "usr/share/zoneinfo/Etc/UTC"
+        self.files.pop(name)
+        for target, message in (("../../../../../etc/passwd", "escapes archive root"),
+                                ("UTC", "link cycle"),
+                                ("../Missing", "Required runtime data is missing")):
+            with self.subTest(target=target):
+                link = tarfile.TarInfo(name)
+                link.type = tarfile.SYMTYPE
+                link.linkname = target
+                with self.assertRaisesRegex(ValueError, message):
+                    self.check(link)
+
+    def test_tmp_permissions_remain_required(self):
+        tmp = tarfile.TarInfo("tmp")
+        tmp.type = tarfile.DIRTYPE
+        tmp.mode = 0o755
+        # Test the permission check with a single temporary-directory member.
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w") as archive:
+            for name, data in self.files.items():
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                info.mode = 0o755
+                archive.addfile(info, io.BytesIO(data))
+            archive.addfile(tmp)
+        buffer.seek(0)
+        with tarfile.open(fileobj=buffer) as archive:
+            with self.assertRaisesRegex(ValueError, "sticky world-writable"):
+                security.check_inventory(self.config, archive)
 
     def test_renamed_symlink_to_busybox_fails(self):
         link = tarfile.TarInfo("bin/probe")
