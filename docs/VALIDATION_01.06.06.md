@@ -34,7 +34,7 @@ Completed local checks on the implementation:
 - Govulncheck v1.7.0 found zero reachable vulnerabilities and zero affected
   imported packages. Module-only GO-2026-5932 concerns the unused
   `golang.org/x/crypto/openpgp` package; it is not imported or vendored here.
-- All 69 Node release safeguard tests and 17 Python container-policy tests passed.
+- All 69 Node release safeguard tests and 21 Python container-policy and publication tests passed.
 - Browser JavaScript, workflow YAML, shell syntax, and whitespace checks passed.
 - `CGO_ENABLED=0` vendored Linux build produced a statically linked ELF binary.
   Executable smoke checks passed for HTTP 200, HTTP 503, and a stopped listener
@@ -76,3 +76,24 @@ returned HTTP 400, "The requested model is not supported." This is not a passed
 review. CodeQL and the configured static/security checks remain required.
 See [PR #25](https://github.com/paulkakell/sovereign-conquest/pull/25) for the final
 candidate's exact-commit checks and container security artifacts.
+
+The final PR #25 candidate `79803cfa4e3463e5c3aebd0fa4a888ff4ea35b9a` passed
+[CI](https://github.com/paulkakell/sovereign-conquest/actions/runs/36348025532) and
+[Build Validation](https://github.com/paulkakell/sovereign-conquest/actions/runs/36348025612).
+Both saved Trivy reports have none of the six reported CVEs and no HIGH/CRITICAL
+findings; both retain the unrelated UNKNOWN-severity module-only GO-2026-5932.
+Both images passed hardened fresh-database integration and native Docker health
+checks. The archived inventories contain only the static API executable as ELF.
+
+Main commit `74a405f0631f51cf20dadc1061ac3f6d7eeb569a` also passed both image
+inventories, scans, and integration flows during publication. Publication then
+stopped because Docker's quiet push output was incorrectly treated as a digest.
+The source-SHA image was uploaded, but `01.06.06` was absent and `main` was not
+updated. The follow-up retrieves the registry's structured manifest digest and
+verifies its configuration digest matches the validated local image before
+publishing version/main aliases. Mock execution tests cover this publication path.
+
+The previous `01.06.05` image was verified anonymously accessible from GHCR:
+`sha256:68d08a815bc943288be5cd0334f94b08ab0ef3cc16c6c5bff219e6da22e0391d`.
+Its Git tag and GitHub release remain available. This establishes rollback
+artifact availability, while retaining the documented warning about old CVEs.

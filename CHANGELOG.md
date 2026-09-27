@@ -11,7 +11,8 @@
 - Replace shell-based wget health checks with a native, bounded probe that
   respects HTTP_ADDR, disables proxies/redirects, and requires HTTP 200.
 - Validate runtime contents, scan vulnerabilities including unfixed reports,
-  and smoke-test before moving GHCR public tags.
+  and smoke-test before moving GHCR public tags. Retrieve the pushed manifest
+  digest from structured registry metadata and verify the validated image identity.
 
 ### Additive
 
