@@ -28,8 +28,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Verify smoke-test syntax
-        run: bash -n scripts/release-smoke.sh
+      - name: Test container security policy and smoke-test syntax
+        run: |
+          bash -n scripts/release-smoke.sh
+          python3 -m unittest discover -s scripts -p 'test_container_security.py' -v
 
       - name: Validate GHCR Compose contract
         shell: bash
@@ -47,18 +49,70 @@ jobs:
       - name: Build web image
         run: docker build --pull --tag sovereign-conquest-web:validation ./web
 
-      - name: Run fresh-database integration test
+      - name: Verify both API runtime inventories
+        run: |
+          mkdir -p container-security
+          python3 scripts/container-security-check.py inventory sovereign-conquest:validation > container-security/combined-inventory.json
+          python3 scripts/container-security-check.py inventory sovereign-conquest-api:validation > container-security/api-inventory.json
+
+      - name: Scan combined image before integration
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_IGNOREFILE: /dev/null
+        with:
+          image-ref: sovereign-conquest:validation
+          scanners: vuln
+          format: json
+          output: container-security/combined-trivy.json
+          exit-code: '0'
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+
+      - name: Scan standalone API image before integration
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_IGNOREFILE: /dev/null
+        with:
+          image-ref: sovereign-conquest-api:validation
+          scanners: vuln
+          format: json
+          output: container-security/api-trivy.json
+          exit-code: '0'
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+
+      - name: Export SBOMs and enforce container vulnerability policy
+        run: |
+          trivy convert --format cyclonedx --output container-security/combined-sbom.cdx.json container-security/combined-trivy.json
+          trivy convert --format cyclonedx --output container-security/api-sbom.cdx.json container-security/api-trivy.json
+          python3 scripts/container-security-check.py vulnerabilities container-security/combined-trivy.json
+          python3 scripts/container-security-check.py vulnerabilities container-security/api-trivy.json
+
+      - name: Run fresh-database integration tests for both API images
         shell: bash
         env:
           SC_IMAGE: sovereign-conquest:validation
-          SC_EXPECTED_VERSION: '01.06.05'
+          SC_EXPECTED_VERSION: '01.06.06'
           SC_HOST_PORT: '18082'
           SC_NAME_PREFIX: validation
           SC_DB_PASSWORD: BuildValidationDatabasePassword
           SC_JWT_SECRET: Build-Validation-JWT-Secret-For-Fresh-Database-Testing
           SC_ADMIN_SECRET: Build-Validation-Administrator-Secret-For-Testing
           SC_INITIAL_ADMIN_PASSWORD: Build-Validation-Admin-Password-2026!
-        run: bash scripts/release-smoke.sh
+        run: |
+          bash scripts/release-smoke.sh
+          SC_IMAGE=sovereign-conquest-api:validation SC_EXPECT_WEB=false SC_HOST_PORT=18084 SC_NAME_PREFIX=validationapi bash scripts/release-smoke.sh
+
+      - name: Retain container security evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-container-security-${{ github.sha }}
+          path: container-security/
+          if-no-files-found: warn
+          retention-days: 30
 
   codeql:
     runs-on: ubuntu-latest

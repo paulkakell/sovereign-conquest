@@ -27,7 +27,6 @@ db="scdb-${prefix}-${suffix}"
 app="scapp-${prefix}-${suffix}"
 username="${prefix}${suffix}"
 username="${username:0:28}"
-app_started=false
 
 show_diagnostics() {
   local exit_code="$1"
@@ -78,21 +77,32 @@ wait_for_database() {
 }
 
 wait_for_application() {
-  local state
+  local state health
   for _ in $(seq 1 120); do
     state="$(docker inspect --format '{{.State.Status}}' "$app" 2>/dev/null || printf 'missing')"
     if [[ "$state" == "exited" || "$state" == "dead" || "$state" == "missing" ]]; then
       printf 'Application container entered state: %s\n' "$state" >&2
       return 1
     fi
-    if curl --fail --silent --show-error "http://127.0.0.1:${SC_HOST_PORT}/api/readyz" >/dev/null 2>&1; then
+    health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$app" 2>/dev/null || printf 'missing')"
+    if [[ "$health" == "none" || "$health" == "unhealthy" ]]; then
+      printf 'Application Docker healthcheck failed: %s\n' "$health" >&2
+      return 1
+    fi
+    if [[ "$health" == "healthy" ]] && curl --fail --silent --show-error "http://127.0.0.1:${SC_HOST_PORT}/api/readyz" >/dev/null 2>&1; then
       return 0
     fi
     sleep 1
   done
-  printf 'Application did not become ready within the validation window.\n' >&2
+  printf 'Application did not become Docker-healthy and ready within the validation window.\n' >&2
   return 1
 }
+
+# A native probe must fail when no API is listening, without shell utilities.
+if docker run --rm --network none "$SC_IMAGE" /app/sovereign-api healthcheck; then
+  printf 'Native healthcheck unexpectedly passed without a running API.\n' >&2
+  exit 1
+fi
 
 docker network create "$network" >/dev/null
 
@@ -116,6 +126,14 @@ database_url="postgres://sovereign:${SC_DB_PASSWORD}@${db}:5432/sovereign_conque
 docker run --detach \
   --name "$app" \
   --network "$network" \
+  --read-only \
+  --tmpfs /tmp:rw,size=32m,mode=1777 \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --health-interval=1s \
+  --health-timeout=5s \
+  --health-start-period=1s \
+  --health-retries=90 \
   --publish "127.0.0.1:${SC_HOST_PORT}:8080" \
   --env APP_ENV=development \
   --env "DATABASE_URL=$database_url" \
@@ -129,15 +147,18 @@ docker run --detach \
   --env EVENT_TICK_SECONDS=0 \
   --env PROTECTORATE_TICK_SECONDS=0 \
   "$SC_IMAGE" >/dev/null
-app_started=true
 
 wait_for_application
+[[ "$(docker inspect --format '{{.Config.User}}' "$app")" == '10001:10001' ]]
+docker exec "$app" /app/sovereign-api healthcheck
 
 base_url="http://127.0.0.1:${SC_HOST_PORT}"
 curl --fail --silent --show-error "$base_url/api/readyz" | jq --exit-status '.ok == true' >/dev/null
 curl --fail --silent --show-error "$base_url/api/livez" | jq --exit-status --arg version "$SC_EXPECTED_VERSION" '.ok == true and .version == $version' >/dev/null
 curl --fail --silent --show-error "$base_url/api/version" | jq --exit-status --arg version "$SC_EXPECTED_VERSION" '.version == $version' >/dev/null
-curl --fail --silent --show-error "$base_url/" | grep --fixed-strings "$SC_EXPECTED_VERSION" >/dev/null
+if [[ "${SC_EXPECT_WEB:-true}" == "true" ]]; then
+  curl --fail --silent --show-error "$base_url/" | grep --fixed-strings "$SC_EXPECTED_VERSION" >/dev/null
+fi
 
 registration="$(curl --fail --silent --show-error \
   --header 'Content-Type: application/json' \

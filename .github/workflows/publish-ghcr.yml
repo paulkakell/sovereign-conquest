@@ -42,25 +42,24 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test container security policy and smoke-test syntax
+        run: |
+          bash -n scripts/release-smoke.sh
+          python3 -m unittest discover -s scripts -p 'test_container_security.py' -v
 
-      - name: Build and push release image
-        id: push
+      # Load once, validate that exact local image, then push it without rebuilding.
+      # Registry provenance is attached explicitly after the validated image is pushed.
+      - name: Build combined release candidate
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          load: true
+          push: false
+          pull: true
+          provenance: false
           platforms: linux/amd64
-          tags: |
-            ${{ steps.release.outputs.image }}:main
-            ${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}
-            ${{ steps.release.outputs.image }}:sha-${{ steps.release.outputs.short_sha }}
+          tags: ${{ steps.release.outputs.image }}:sha-${{ steps.release.outputs.short_sha }}
           labels: |
             org.opencontainers.image.title=Sovereign Conquest
             org.opencontainers.image.version=${{ steps.release.outputs.version }}
@@ -69,7 +68,107 @@ jobs:
           cache-from: type=gha,scope=ghcr-release
           cache-to: type=gha,mode=max,scope=ghcr-release
 
-      - name: Attest image provenance
+      - name: Build standalone API release candidate
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          load: true
+          push: false
+          pull: true
+          provenance: false
+          platforms: linux/amd64
+          tags: sovereign-conquest-api:release-validation
+          cache-from: type=gha,scope=api-validation
+          cache-to: type=gha,mode=max,scope=api-validation
+
+      - name: Verify both API runtime inventories
+        env:
+          CANDIDATE_IMAGE: ${{ steps.release.outputs.image }}:sha-${{ steps.release.outputs.short_sha }}
+        run: |
+          mkdir -p container-security
+          python3 scripts/container-security-check.py inventory "$CANDIDATE_IMAGE" > container-security/combined-inventory.json
+          python3 scripts/container-security-check.py inventory sovereign-conquest-api:release-validation > container-security/api-inventory.json
+
+      - name: Scan combined release candidate
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_IGNOREFILE: /dev/null
+        with:
+          image-ref: ${{ steps.release.outputs.image }}:sha-${{ steps.release.outputs.short_sha }}
+          scanners: vuln
+          format: json
+          output: container-security/combined-trivy.json
+          exit-code: '0'
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+
+      - name: Scan standalone API release candidate
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_IGNOREFILE: /dev/null
+        with:
+          image-ref: sovereign-conquest-api:release-validation
+          scanners: vuln
+          format: json
+          output: container-security/api-trivy.json
+          exit-code: '0'
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+
+      - name: Export SBOMs and enforce container vulnerability policy
+        run: |
+          trivy convert --format cyclonedx --output container-security/combined-sbom.cdx.json container-security/combined-trivy.json
+          trivy convert --format cyclonedx --output container-security/api-sbom.cdx.json container-security/api-trivy.json
+          python3 scripts/container-security-check.py vulnerabilities container-security/combined-trivy.json
+          python3 scripts/container-security-check.py vulnerabilities container-security/api-trivy.json
+
+      - name: Smoke-test both release candidates
+        shell: bash
+        env:
+          SC_IMAGE: ${{ steps.release.outputs.image }}:sha-${{ steps.release.outputs.short_sha }}
+          SC_EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+          SC_HOST_PORT: '18083'
+          SC_NAME_PREFIX: candidate
+          SC_DB_PASSWORD: CandidateValidationDatabasePassword
+          SC_JWT_SECRET: Candidate-Validation-JWT-Secret-2026
+          SC_ADMIN_SECRET: Candidate-Validation-Administrator-Secret
+          SC_INITIAL_ADMIN_PASSWORD: Candidate-Validation-Admin-Password-2026!
+        run: |
+          bash scripts/release-smoke.sh
+          SC_IMAGE=sovereign-conquest-api:release-validation SC_EXPECT_WEB=false SC_HOST_PORT=18085 SC_NAME_PREFIX=candidateapi bash scripts/release-smoke.sh
+
+      - name: Log in to GHCR after validation
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push validated release image
+        id: push
+        shell: bash
+        env:
+          IMAGE: ${{ steps.release.outputs.image }}
+          VERSION: ${{ steps.release.outputs.version }}
+          SHORT_SHA: ${{ steps.release.outputs.short_sha }}
+        run: |
+          set -euo pipefail
+          candidate="$IMAGE:sha-$SHORT_SHA"
+          validated_id="$(jq -er '.image_id' container-security/combined-inventory.json)"
+          [[ "$(docker image inspect --format '{{.Id}}' "$candidate")" == "$validated_id" ]]
+          docker tag "$candidate" "$IMAGE:$VERSION"
+          docker tag "$candidate" "$IMAGE:main"
+          digest="$(docker push --quiet "$candidate")"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          docker push "$IMAGE:$VERSION"
+          docker push "$IMAGE:main"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          printf '%s@%s\n' "$IMAGE" "$digest" > container-security/published-digest.txt
+
+      - name: Attest validated image provenance
         uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ steps.release.outputs.image }}
@@ -77,28 +176,11 @@ jobs:
           push-to-registry: true
           create-storage-record: false
 
-      - name: Pull published version image
-        run: docker pull "${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}"
-
-      - name: Scan published image
-        uses: aquasecurity/trivy-action@v0.36.0
+      - name: Retain container security evidence
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          image-ref: ${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-
-      - name: Smoke-test published image
-        shell: bash
-        env:
-          SC_IMAGE: ${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}
-          SC_EXPECTED_VERSION: ${{ steps.release.outputs.version }}
-          SC_HOST_PORT: '18083'
-          SC_NAME_PREFIX: published
-          SC_DB_PASSWORD: PublishedImageValidationDatabasePassword
-          SC_JWT_SECRET: Published-Image-Validation-JWT-Secret-2026
-          SC_ADMIN_SECRET: Published-Image-Validation-Administrator-Secret
-          SC_INITIAL_ADMIN_PASSWORD: Published-Image-Validation-Admin-Password-2026!
-        run: bash scripts/release-smoke.sh
+          name: release-container-security-${{ github.sha }}-${{ github.run_id }}
+          path: container-security/
+          if-no-files-found: warn
+          retention-days: 30

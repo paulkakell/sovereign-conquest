@@ -13,11 +13,24 @@ import (
 	"sovereignconquest/internal/config"
 	"sovereignconquest/internal/db"
 	"sovereignconquest/internal/game"
+	"sovereignconquest/internal/healthcheck"
 	"sovereignconquest/internal/schema"
 )
 
 func main() {
+	// Probe mode must not load application configuration or initialize the DB.
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if err := healthcheck.Run(os.Getenv("HTTP_ADDR")); err != nil {
+			log.Printf("healthcheck failed: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	cfg := config.Load()
+	if err := validateRuntimeConfiguration(cfg); err != nil {
+		log.Fatalf("configuration validation failed: %v", err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
