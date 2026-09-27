@@ -1,5 +1,38 @@
 # Changelog
 
+## 01.06.06 - 2026-09-27
+
+### Fixes
+
+- Remove vulnerable zlib, wget, busybox, busybox-binsh, and ssl_client packages
+  from both API runtime images by using static Go executables in scratch stages.
+  Addresses CVE-2026-85091, CVE-2026-58469, CVE-2026-58470, CVE-2026-58471,
+  CVE-2026-58472, and CVE-2025-60876 without advisory suppressions.
+- Replace shell-based wget health checks with a native, bounded probe that
+  respects HTTP_ADDR, disables proxies/redirects, and requires HTTP 200.
+- Validate runtime contents, scan vulnerabilities including unfixed reports,
+  and smoke-test before moving GHCR public tags.
+
+### Additive
+
+- Add healthcheck regression tests, runtime inventory and scan-policy gates,
+  coverage for both API images, and protected 01.06.06 release finalization.
+- Update README, configuration, release notes, security review, and rollback.
+
+### Compatibility
+
+- No API, gameplay, schema, dependency manifest, or persistent format changes.
+  Runtime shell/package utilities are removed; custom operator scripts must use
+  host-side tools or the native healthcheck. Non-root UID, certificates, timezone
+  data, web assets, and Compose hardening remain supported.
+
+Base: `d5bf909aef936ae0f619c3d053b57f3d89c212da` (v01.06.05, PR #24).
+Release pull request: #25. References: the six public CVEs above; no separate issue was opened.
+See [release notes](docs/RELEASE_NOTES_01.06.06.md),
+[validation](docs/VALIDATION_01.06.06.md),
+[security review](docs/SECURITY_REVIEW_01.06.06.md), and
+[copyable commit notes](docs/COMMIT_NOTES_01.06.06.md).
+
 ## 01.06.05 - 2026-09-27
 
 ### Additive

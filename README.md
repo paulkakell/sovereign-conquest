@@ -1,14 +1,14 @@
 # Sovereign Conquest
 
-Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current release is **v01.06.05**.
+Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current release is **v01.06.06**.
 
 ## Current maintenance release
 
-See the [01.06.05 release notes](docs/RELEASE_NOTES_01.06.05.md),
-[validation record](docs/VALIDATION_01.06.05.md), and
+See the [01.06.06 release notes](docs/RELEASE_NOTES_01.06.06.md),
+[validation record](docs/VALIDATION_01.06.06.md), and
 [existing code review findings](docs/CODE_REVIEW_01.06.04.md). This maintenance
-release adds community contribution forms, funding configuration, and a security
-reporting policy. The roadmap implementation packets remain planned. Use one API
+release removes the vulnerable Alpine packages from the API runtime and adds
+native health checks plus security gates before image publication. The roadmap implementation packets remain planned. Use one API
 replica until the documented scheduler issue is repaired.
 
 ## Community and support
@@ -34,13 +34,13 @@ The first milestone addresses database migration coverage, port demand, repeatab
 The repository publishes one combined API and web image:
 
 ```bash
-docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.05
+docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.06
 docker pull ghcr.io/paulkakell/sovereign-conquest:main
 ```
 
-`01.06.05` is the release tag for this version. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
+`01.06.06` is the release tag for this version. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
 
-The publication workflow also emits a source-SHA tag, provenance attestation, high and critical vulnerability scan, and a runtime smoke test of the pushed image.
+The publication workflow scans and smoke-tests the built image before moving public tags. It also emits a source-SHA tag and provenance attestation. See the [container security review](docs/SECURITY_REVIEW_01.06.06.md) for the reported CVEs and verification policy.
 
 ## Architecture
 
@@ -93,7 +93,7 @@ The former standalone `web` service has been removed. Use `docker compose logs a
 A local source build remains available outside Compose:
 
 ```bash
-docker build -t sovereign-conquest:01.06.05 .
+docker build -t sovereign-conquest:01.06.06 .
 ```
 
 The combined image serves the API and web UI on port 8080. Production mode rejects weak secrets and database connections without transport verification.
@@ -107,6 +107,19 @@ The combined image serves the API and web UI on port 8080. Production mode rejec
 - `GET /api/livez`: process liveness and version
 - `GET /api/readyz`: database readiness
 - structured request logs include method, path, status, response size, and duration; client network addresses are not persisted
+
+The runtime contains the static Go API, certificates, timezone data, and bundled web
+assets. It has no shell or package manager. To check liveness manually:
+
+```bash
+docker compose exec api /app/sovereign-api healthcheck
+docker compose logs --tail=100 api
+```
+
+The native probe follows `HTTP_ADDR`, bypasses HTTP proxies, rejects redirects,
+and exits within three seconds. Custom runtime scripts that call `sh`, `wget`,
+or `apk` must be replaced with host-side tooling. Application APIs and database
+formats remain compatible.
 
 ## Commands
 

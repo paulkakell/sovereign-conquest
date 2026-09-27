@@ -1,12 +1,12 @@
 # Sovereign Conquest Configuration
 
-This guide describes the configuration contract for version 01.06.04.
+This guide describes the configuration contract for version 01.06.06.
 
 ## Deployment profiles
 
 `docker-compose.yml` is a local-development profile. It pulls the combined API and web image from GHCR and does not contain Docker build definitions. PostgreSQL remains a separate service on the internal Compose network.
 
-The default image is `ghcr.io/paulkakell/sovereign-conquest:main`. The `main` tag is moving. Pin `SC_IMAGE` to `ghcr.io/paulkakell/sovereign-conquest:01.06.04` or a verified digest for controlled deployments.
+The default image is `ghcr.io/paulkakell/sovereign-conquest:main`. The `main` tag is moving. Pin `SC_IMAGE` to `ghcr.io/paulkakell/sovereign-conquest:01.06.06` or a verified digest for controlled deployments.
 
 The Compose profile uses local database transport and publishes loopback-only development ports. Do not expose it directly to the public Internet.
 
@@ -17,10 +17,10 @@ The active GHCR workflow publishes:
 | Tag | Purpose |
 |---|---|
 | `main` | Moving image for the current default branch |
-| `01.06.04` | Release image for this version |
+| `01.06.06` | Release image for this version |
 | `sha-<source-sha>` | Source-specific traceability |
 
-The version image is attested, scanned for high and critical vulnerabilities, and smoke-tested against a fresh PostgreSQL database before publication completes.
+The candidate image is scanned and smoke-tested against fresh PostgreSQL before public tags move. The same validated image is pushed and attested. Scans include unfixed vulnerabilities and explicitly reject every CVE listed in the 01.06.06 security review, regardless of severity.
 
 ## Compose image settings
 
@@ -85,6 +85,31 @@ Port, planet, and event jobs use PostgreSQL advisory locks to prevent overlappin
 - `GET /api/version` returns the current application version.
 
 Use `/api/readyz` for load-balancer readiness. Use `/api/livez` for container liveness.
+
+## Shell-free runtime and native health check
+
+Both API Dockerfiles use a `scratch` final stage. Runtime files are limited to the
+static Go executable, merged CA certificate bundle, timezone database, temporary
+directory, and web assets where applicable. The application runs as `10001:10001`.
+Compose keeps its read-only root, `/tmp` tmpfs, dropped capabilities, and
+`no-new-privileges` setting.
+
+```bash
+docker compose exec api /app/sovereign-api healthcheck
+```
+
+The command probes `/api/livez` using `HTTP_ADDR` (default `:8080`). Wildcard
+listeners map to loopback. For example, an API configured with `HTTP_ADDR=:9090`
+checks port 9090 automatically. Only HTTP 200 succeeds. Proxies and redirects are
+disabled, with a three-second deadline. It does not load database credentials or
+initialize the application. Use a matching host port mapping if changing ports.
+
+There is no `sh`, `wget`, `apk`, or BusyBox in the final image. Existing external
+healthcheck overrides using `CMD-SHELL` must use the executable command above.
+Use host-side diagnostics and `docker compose logs api` for troubleshooting.
+Place custom `.crt` roots in `server/certs/` before building; the merged bundle is
+copied to `/etc/ssl/certs/ca-certificates.crt`. Timezone files remain under
+`/usr/share/zoneinfo`; for example, `TZ=America/Denver` remains supported.
 
 ## Manual source-build settings
 

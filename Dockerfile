@@ -3,7 +3,9 @@
 FROM golang:1.27.1-alpine3.24 AS build
 WORKDIR /src
 
-RUN apk add --no-cache ca-certificates git
+RUN apk add --no-cache ca-certificates git tzdata \
+    && mkdir -p /out/runtime/tmp \
+    && chmod 1777 /out/runtime/tmp
 COPY server/certs/ /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
@@ -43,14 +45,14 @@ RUN chmod +x ./scripts/build_api.sh \
     }) \
     && cat /tmp/sc-build.log
 
-FROM alpine:3.24
+# The API is statically linked. Only runtime data crosses into the final image;
+# Alpine packages and build tools remain in the discarded build stage.
+FROM scratch
 WORKDIR /app
-RUN apk add --no-cache ca-certificates tzdata wget \
-    && addgroup -S -g 10001 sovereign \
-    && adduser -S -D -H -u 10001 -G sovereign sovereign
-
-COPY server/certs/ /usr/local/share/ca-certificates/
-RUN update-ca-certificates
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /usr/share/zoneinfo/ /usr/share/zoneinfo/
+# Copy tmp as a child directory so its sticky/writable mode is preserved.
+COPY --from=build /out/runtime/ /
 COPY --from=build --chown=10001:10001 /out/sovereign-api /app/sovereign-api
 COPY --chown=10001:10001 web/static/ /app/web/
 
@@ -62,5 +64,5 @@ ENV APP_ENV=production \
 USER 10001:10001
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:8080/api/livez >/dev/null || exit 1
+  CMD ["/app/sovereign-api", "healthcheck"]
 CMD ["/app/sovereign-api"]

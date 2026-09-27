@@ -34,16 +34,56 @@ func TestGHCRPublishWorkflowBuildsAndValidatesReleaseImage(t *testing.T) {
 		"docker/build-push-action@v6",
 		"context: .",
 		"file: ./Dockerfile",
-		"${{ steps.release.outputs.image }}:main",
-		"${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}",
+		"docker tag \"$candidate\" \"$IMAGE:main\"",
+		"docker tag \"$candidate\" \"$IMAGE:$VERSION\"",
 		"${{ steps.release.outputs.image }}:sha-${{ steps.release.outputs.short_sha }}",
 		"actions/attest-build-provenance@v4",
 		"aquasecurity/trivy-action@v0.36.0",
 		"bash scripts/release-smoke.sh",
+		"SC_IMAGE=sovereign-conquest-api:release-validation SC_EXPECT_WEB=false",
+		"python3 scripts/container-security-check.py inventory",
+		"python3 scripts/container-security-check.py vulnerabilities",
+		"severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL",
+		"ignore-unfixed: false",
+		"TRIVY_IGNOREFILE: /dev/null",
+		"load: true",
+		"pull: true",
+		"trivy convert --format cyclonedx",
+		"actions/upload-artifact@v4",
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Fatalf("GHCR publish workflow missing %q", want)
 		}
+	}
+
+	for _, forbidden := range []string{"push: true", "ignore-unfixed: true", "continue-on-error: true"} {
+		if strings.Contains(workflow, forbidden) {
+			t.Fatalf("publish workflow permits unsafe pre-validation behavior: %q", forbidden)
+		}
+	}
+
+	// Publication must consume the validated image instead of rebuilding after checks.
+	previous := -1
+	for _, step := range []string{
+		"- name: Build combined release candidate",
+		"- name: Build standalone API release candidate",
+		"- name: Verify both API runtime inventories",
+		"- name: Scan combined release candidate",
+		"- name: Scan standalone API release candidate",
+		"- name: Export SBOMs and enforce container vulnerability policy",
+		"- name: Smoke-test both release candidates",
+		"- name: Push validated release image",
+		"- name: Attest validated image provenance",
+	} {
+		index := strings.Index(workflow, step)
+		if index <= previous {
+			t.Fatalf("publish workflow step missing or out of order: %q", step)
+		}
+		previous = index
+	}
+	if !strings.Contains(workflow, "validated_id=\"$(jq -er '.image_id' container-security/combined-inventory.json)\"") ||
+		!strings.Contains(workflow, "[[ \"$(docker image inspect --format '{{.Id}}' \"$candidate\")\" == \"$validated_id\" ]]") {
+		t.Fatal("published image must match the image whose inventory was validated")
 	}
 
 	legacyPath := filepath.Join(repoRoot, ".github", "workflows", "docker-image.yml")
