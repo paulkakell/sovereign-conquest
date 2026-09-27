@@ -10,7 +10,12 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./docker/db:/opt/sc-db:ro
+      - type: bind
+        source: ./docker/db
+        target: /opt/sc-db
+        read_only: true
+        bind:
+          create_host_path: false
     expose:
       - "5432"
     healthcheck:
@@ -23,21 +28,21 @@ services:
       - backend
 
   api:
-    image: "${SC_IMAGE:-ghcr.io/paulkakell/sovereign-conquest:main}"
+    image: "${SC_IMAGE:-ghcr.io/paulkakell/sovereign-conquest:01.06.09}"
     pull_policy: "${SC_PULL_POLICY:-always}"
     restart: unless-stopped
     init: true
     environment:
       APP_ENV: ${APP_ENV:-development}
-      TRUST_PROXY_HEADERS: "false"
+      TRUST_PROXY_HEADERS: "${TRUST_PROXY_HEADERS:-false}"
       DATABASE_URL: postgres://db:5432/?sslmode=disable
       PGUSER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       PGDATABASE: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       ADMIN_SECRET: ${ADMIN_SECRET:-}
       INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-admin}
-      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:?Set INITIAL_ADMIN_PASSWORD in .env}
       UNIVERSE_SEED: ${UNIVERSE_SEED:-2002}
       UNIVERSE_SECTORS: ${UNIVERSE_SECTORS:-200}
       TURN_REGEN_SECONDS: ${TURN_REGEN_SECONDS:-120}

@@ -1,5 +1,46 @@
 # Changelog
 
+## 01.06.09 - 2026-09-27
+
+### Fixes
+
+- Require nonempty JWT and bootstrap administrator secrets in root Compose so
+  omitted settings cannot fall through to development credentials. Leave the
+  three required example secrets blank to require operator input.
+- Align both Compose image defaults and `.env.example` with the 01.06.09 release
+  instead of silently following `main`. Verified digests remain supported.
+- Make the root database script mount read-only with `create_host_path: false`.
+- Pass the documented `TRUST_PROXY_HEADERS` setting through both Compose
+  profiles, retaining `false` by default. Ignore local environment files in Git.
+- Correct documentation for disabled season resets, bootstrap password limits,
+  development/TLS requirements, both profile ports, database privileges, and
+  actual scheduler bounds and creation-time universe behavior.
+
+### Additive
+
+- Exercise real Compose rendering with nine regression tests covering every
+  example setting, missing/empty required values, literal credentials, overrides,
+  storage, networks, health, and hardening; run them in CI/build/publication gates.
+- Add guarded 01.06.09 release finalization, 20 release-safeguard regressions,
+  full configuration documentation, validation, release notes, and rollback.
+
+### Compatibility
+
+- Configuration tightening: copied examples must be completed before Compose can
+  render/start. Existing deployments with explicit secrets remain compatible.
+  `ADMIN_SECRET` is optional; leaving it empty disables HTTP season resets.
+- No API, schema, database script, dependency, gameplay, or data-format changes.
+  Root ports remain 3000/8080; the tailored default remains 5000 when unset.
+  Existing `.env` image overrides still take precedence and must be updated
+  explicitly when adopting the release.
+
+Base: `2afa856cef71dd6f5ea5060425baba43935828be` (v01.06.08, PR #28).
+Reference: requested Compose and environment verification; no separate issue.
+See [configuration](docs/CONFIGURATION.md),
+[release notes](docs/RELEASE_NOTES_01.06.09.md),
+[validation](docs/VALIDATION_01.06.09.md), and
+[copyable commit notes](docs/COMMIT_NOTES_01.06.09.md).
+
 ## 01.06.08 - 2026-09-27
 
 ### Fixes

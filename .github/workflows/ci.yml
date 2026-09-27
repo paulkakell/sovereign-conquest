@@ -84,9 +84,5 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
           "$(go env GOPATH)/bin/govulncheck" ./...
 
-      - name: Validate Compose configuration
-        shell: bash
-        run: |
-          cp .env.example .env
-          docker compose config --quiet
-          docker compose --env-file .env -f deploy/docker-compose.bind.yml config --quiet
+      - name: Validate Compose settings and environment contract
+        run: python3 -m unittest discover -s scripts -p 'test_compose_config.py' -v

@@ -1,14 +1,14 @@
 # Sovereign Conquest
 
-Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. This source version is **v01.06.08**.
+Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. This source version is **v01.06.09**.
 
 ## Current maintenance release
 
-See the [01.06.08 release notes](docs/RELEASE_NOTES_01.06.08.md),
-[validation record](docs/VALIDATION_01.06.08.md), and
+See the [01.06.09 release notes](docs/RELEASE_NOTES_01.06.09.md),
+[validation record](docs/VALIDATION_01.06.09.md), and
 [existing code review findings](docs/CODE_REVIEW_01.06.04.md). This maintenance
-release combines database startup reconciliation with the prior API security
-fixes. See the [database startup guide](docs/DATABASE_STARTUP.md). The roadmap implementation packets remain planned. Use one API
+release verifies Compose settings, requires explicit secrets, pins the default
+application image to the release, and documents every environment setting. See the [database startup guide](docs/DATABASE_STARTUP.md). The roadmap implementation packets remain planned. Use one API
 replica until the documented scheduler issue is repaired.
 
 ## Community and support
@@ -34,11 +34,11 @@ The first milestone addresses database migration coverage, port demand, repeatab
 The repository publishes one combined API and web image:
 
 ```bash
-docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.08
+docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.09
 docker pull ghcr.io/paulkakell/sovereign-conquest:main
 ```
 
-`01.06.08` is the release image tag, published after all release gates pass. `v01.06.06` remains the rollback source baseline. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
+`01.06.09` is the release image tag, available only after all release gates pass. `v01.06.08` remains the rollback source baseline. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
 
 The publication workflow scans and smoke-tests the built image before moving public tags. It also emits a source-SHA tag and provenance attestation. See the [container security review](docs/SECURITY_REVIEW_01.06.06.md) for the reported CVEs and verification policy.
 
@@ -66,12 +66,17 @@ use the tailored profile when the API and web use one host port.
 
 ```bash
 cp .env.example .env
-# Replace every placeholder secret in .env.
+chmod 600 .env
+# Fill POSTGRES_PASSWORD, JWT_SECRET, and INITIAL_ADMIN_PASSWORD.
+# Set ADMIN_SECRET too if you need the HTTP season-reset endpoint.
+docker compose config --quiet
 docker compose pull
 docker compose up -d --remove-orphans
 ```
 
-Open `http://localhost:3000`. The same combined application is also available on `http://localhost:8080`, preserving the prior direct API port. PostgreSQL remains on the internal Compose network.
+Use the released image tag only after publication. See the [configuration guide](docs/CONFIGURATION.md) for all settings, secret generation, proxy access, production TLS, and the bind-profile port override.
+
+Open `http://localhost:3000` on the Docker host. The same combined application is also available on `http://localhost:8080`, preserving the prior direct API port. PostgreSQL remains on the internal Compose network.
 
 Override the image without editing Compose:
 
@@ -101,7 +106,7 @@ The former standalone `web` service has been removed. Use `docker compose logs a
 A local source build remains available outside Compose:
 
 ```bash
-docker build -t sovereign-conquest:01.06.08 .
+docker build -t sovereign-conquest:01.06.09 .
 ```
 
 The combined image serves the API and web UI on port 8080. Production mode rejects weak secrets and database connections without transport verification.
@@ -175,8 +180,7 @@ go vet ./...
 go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
 "$(go env GOPATH)/bin/govulncheck" ./...
 cd ..
-cp .env.example .env
-docker compose config --quiet
+python3 -m unittest discover -s scripts -p 'test_compose_config.py' -v
 docker build --pull -t sovereign-conquest:validation .
 docker build --pull -t sovereign-conquest-api:validation ./server
 docker build --pull -t sovereign-conquest-web:validation ./web

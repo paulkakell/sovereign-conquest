@@ -47,6 +47,9 @@ jobs:
           bash -n scripts/release-smoke.sh
           python3 -m unittest discover -s scripts -p 'test_container_security.py' -v
 
+      - name: Validate Compose settings before publishing candidates
+        run: python3 -m unittest discover -s scripts -p 'test_compose_config.py' -v
+
       - name: Validate database recovery before publishing candidates
         run: |
           shellcheck docker/db/*.sh
