@@ -109,7 +109,9 @@ docker network create "$network" >/dev/null
 docker run --detach \
   --name "$db" \
   --network "$network" \
-  --health-cmd='pg_isready -U sovereign -d sovereign_conquest' \
+  --entrypoint bash \
+  --volume "$(pwd)/docker/db:/opt/sc-db:ro" \
+  --health-cmd='bash /opt/sc-db/check.sh' \
   --health-interval=1s \
   --health-timeout=3s \
   --health-start-period=1s \
@@ -117,11 +119,11 @@ docker run --detach \
   --env POSTGRES_USER=sovereign \
   --env "POSTGRES_PASSWORD=$SC_DB_PASSWORD" \
   --env POSTGRES_DB=sovereign_conquest \
-  postgres:16-alpine >/dev/null
+  postgres:16-alpine /opt/sc-db/entrypoint.sh postgres >/dev/null
 
 wait_for_database
 
-database_url="postgres://sovereign:${SC_DB_PASSWORD}@${db}:5432/sovereign_conquest?sslmode=disable"
+database_url="postgres://${db}:5432/?sslmode=disable"
 
 docker run --detach \
   --name "$app" \
@@ -137,6 +139,9 @@ docker run --detach \
   --publish "127.0.0.1:${SC_HOST_PORT}:8080" \
   --env APP_ENV=development \
   --env "DATABASE_URL=$database_url" \
+  --env PGUSER=sovereign \
+  --env "PGPASSWORD=$SC_DB_PASSWORD" \
+  --env PGDATABASE=sovereign_conquest \
   --env "JWT_SECRET=$SC_JWT_SECRET" \
   --env "ADMIN_SECRET=${SC_ADMIN_SECRET:-}" \
   --env INITIAL_ADMIN_USERNAME=admin \

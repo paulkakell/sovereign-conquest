@@ -41,6 +41,9 @@ jobs:
       - name: Test release finalization safeguards
         run: node --test scripts/*.test.cjs
 
+      - name: Test database recovery failure handling
+        run: python3 -m unittest discover -s scripts -p 'test_db_recovery.py' -v
+
       - name: Verify Go formatting
         working-directory: server
         shell: bash
@@ -86,3 +89,4 @@ jobs:
         run: |
           cp .env.example .env
           docker compose config --quiet
+          docker compose --env-file .env -f deploy/docker-compose.bind.yml config --quiet
