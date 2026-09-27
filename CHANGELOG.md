@@ -1,5 +1,36 @@
 # Changelog
 
+## 01.06.04 - 2026-09-27
+
+### Additive
+
+- Integrate roadmap revision 00.02.01 from PR #22 without marking planned gameplay
+  complete. Add a source-backed code review and safe, bounded release finalization.
+
+### Fixes and maintenance
+
+- Consolidate chi 5.3.2 (#14), pgx 5.11.0 (#21), x/crypto 0.57.0 (#20), synchronized
+  vendoring, both Go 1.27.1 builders (#18, #19), Buildx v4 (#11), attestation v4
+  (#13), and Trivy v0.36.0 (#12).
+- Repair shared module conflicts and align compiler, action, UI, and smoke-test
+  version contracts so the combined proposals can pass the complete release gates.
+- Increment application version 01.06.03 to 01.06.04. Source builds require Go 1.26
+  or later; no API, schema, or persistent data-format changes are introduced.
+
+See [release notes](docs/RELEASE_NOTES_01.06.04.md),
+[validation](docs/VALIDATION_01.06.04.md),
+[review findings](docs/CODE_REVIEW_01.06.04.md), and
+[copyable commit notes](docs/COMMIT_NOTES_01.06.04.md).
+
+
+## Roadmap 00.02.01 (2026-09-27)
+
+Documentation
+- Add the complete [product and implementation roadmap](docs/ROADMAP.md), including the accepted game design, source assessment, implementation packets, acceptance criteria, migration and rollback requirements, and original planning brief.
+- Add a linked implementation tracker for all fifteen packets across seven proposed releases; implementation status begins at Planned.
+- Link the roadmap from the README and distinguish historical audit evidence from future release gates.
+- Keep the roadmap document version separate from application version `01.06.03`; this integration changes no runtime code, database schema, dependencies, or deployment configuration.
+
 ## 01.06.03 (2026-08-13)
 
 Fix

@@ -1,12 +1,12 @@
 # Sovereign Conquest Configuration
 
-This guide describes the configuration contract for version 01.06.03.
+This guide describes the configuration contract for version 01.06.04.
 
 ## Deployment profiles
 
 `docker-compose.yml` is a local-development profile. It pulls the combined API and web image from GHCR and does not contain Docker build definitions. PostgreSQL remains a separate service on the internal Compose network.
 
-The default image is `ghcr.io/paulkakell/sovereign-conquest:main`. The `main` tag is moving. Pin `SC_IMAGE` to `ghcr.io/paulkakell/sovereign-conquest:01.06.03` or a verified digest for controlled deployments.
+The default image is `ghcr.io/paulkakell/sovereign-conquest:main`. The `main` tag is moving. Pin `SC_IMAGE` to `ghcr.io/paulkakell/sovereign-conquest:01.06.04` or a verified digest for controlled deployments.
 
 The Compose profile uses local database transport and publishes loopback-only development ports. Do not expose it directly to the public Internet.
 
@@ -17,7 +17,7 @@ The active GHCR workflow publishes:
 | Tag | Purpose |
 |---|---|
 | `main` | Moving image for the current default branch |
-| `01.06.03` | Release image for this version |
+| `01.06.04` | Release image for this version |
 | `sha-<source-sha>` | Source-specific traceability |
 
 The version image is attested, scanned for high and critical vulnerabilities, and smoke-tested against a fresh PostgreSQL database before publication completes.
@@ -76,7 +76,7 @@ Set `TRUST_PROXY_HEADERS=true` only when every request reaches the API through a
 | `EVENT_TICK_SECONDS` | `60` | Event-generation interval; `0` disables it |
 | `PROTECTORATE_TICK_SECONDS` | `60` | Protectorate update interval; `0` disables it |
 
-Port, planet, and event jobs use PostgreSQL advisory locks to prevent duplicate execution when multiple API replicas are running.
+Port, planet, and event jobs use PostgreSQL advisory locks to prevent overlapping transactions. Those locks do not prevent staggered replicas from applying the same scheduled interval more than once. Run one API replica until durable scheduling is implemented; see [CR-02](CODE_REVIEW_01.06.04.md#cr-02-per-invocation-locks-do-not-prevent-duplicate-scheduled-intervals).
 
 ## Health endpoints
 

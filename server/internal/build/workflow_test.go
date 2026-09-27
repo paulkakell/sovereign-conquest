@@ -29,7 +29,7 @@ func TestGHCRPublishWorkflowBuildsAndValidatesReleaseImage(t *testing.T) {
 		"version=\"$(tr -d '\\r\\n' < VERSION)\"",
 		"image=\"ghcr.io/${GITHUB_REPOSITORY,,}\"",
 		"actions/checkout@v5",
-		"docker/setup-buildx-action@v3",
+		"docker/setup-buildx-action@v4",
 		"docker/login-action@v3",
 		"docker/build-push-action@v6",
 		"context: .",
@@ -37,8 +37,8 @@ func TestGHCRPublishWorkflowBuildsAndValidatesReleaseImage(t *testing.T) {
 		"${{ steps.release.outputs.image }}:main",
 		"${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}",
 		"${{ steps.release.outputs.image }}:sha-${{ steps.release.outputs.short_sha }}",
-		"actions/attest-build-provenance@v3",
-		"aquasecurity/trivy-action@0.35.0",
+		"actions/attest-build-provenance@v4",
+		"aquasecurity/trivy-action@v0.36.0",
 		"bash scripts/release-smoke.sh",
 	} {
 		if !strings.Contains(workflow, want) {

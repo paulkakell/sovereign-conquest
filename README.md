@@ -1,17 +1,31 @@
 # Sovereign Conquest
 
-Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current release is **v01.06.03**.
+Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current release is **v01.06.04**.
+
+## Current maintenance release
+
+See the [01.06.04 release notes](docs/RELEASE_NOTES_01.06.04.md),
+[validation record](docs/VALIDATION_01.06.04.md), and
+[code review findings](docs/CODE_REVIEW_01.06.04.md). The maintenance release
+consolidates dependency updates; the roadmap implementation packets remain planned.
+Use one API replica until the documented scheduler issue is repaired.
+
+## Roadmap
+
+The [product and implementation roadmap](docs/ROADMAP.md) connects the game design to the evaluated codebase, with seven proposed releases and fifteen implementation packets. Start with its [implementation tracker](docs/ROADMAP.md#implementation-tracker) for dependencies, status, and acceptance criteria.
+
+The first milestone addresses database migration coverage, port demand, repeatable XP, transaction failures, session revocation, reset consistency, and release validation. Later milestones add durable actions, structured controls, shared intelligence, freight contracts, onboarding, protected conflict, relay objectives, and competitive seasons. Planned features and version numbers are proposals; the roadmap records evidence when implementation is delivered.
 
 ## GHCR image
 
 The repository publishes one combined API and web image:
 
 ```bash
-docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.03
+docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.04
 docker pull ghcr.io/paulkakell/sovereign-conquest:main
 ```
 
-`01.06.03` is the release tag for this version. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
+`01.06.04` is the release tag for this version. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
 
 The publication workflow also emits a source-SHA tag, provenance attestation, high and critical vulnerability scan, and a runtime smoke test of the pushed image.
 
@@ -66,7 +80,7 @@ The former standalone `web` service has been removed. Use `docker compose logs a
 A local source build remains available outside Compose:
 
 ```bash
-docker build -t sovereign-conquest:01.06.03 .
+docker build -t sovereign-conquest:01.06.04 .
 ```
 
 The combined image serves the API and web UI on port 8080. Production mode rejects weak secrets and database connections without transport verification.
