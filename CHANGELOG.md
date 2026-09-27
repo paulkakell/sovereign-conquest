@@ -1,5 +1,13 @@
 # Changelog
 
+## Roadmap 00.02.01 (2026-09-27)
+
+Documentation
+- Add the complete [product and implementation roadmap](docs/ROADMAP.md), including the accepted game design, source assessment, implementation packets, acceptance criteria, migration and rollback requirements, and original planning brief.
+- Add a linked implementation tracker for all fifteen packets across seven proposed releases; implementation status begins at Planned.
+- Link the roadmap from the README and distinguish historical audit evidence from future release gates.
+- Keep the roadmap document version separate from application version `01.06.03`; this integration changes no runtime code, database schema, dependencies, or deployment configuration.
+
 ## 01.06.03 (2026-08-13)
 
 Fix

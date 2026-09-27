@@ -2,6 +2,12 @@
 
 Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. The current release is **v01.06.03**.
 
+## Roadmap
+
+The [product and implementation roadmap](docs/ROADMAP.md) connects the game design to the evaluated codebase, with seven proposed releases and fifteen implementation packets. Start with its [implementation tracker](docs/ROADMAP.md#implementation-tracker) for dependencies, status, and acceptance criteria.
+
+The first milestone addresses database migration coverage, port demand, repeatable XP, transaction failures, session revocation, reset consistency, and release validation. Later milestones add durable actions, structured controls, shared intelligence, freight contracts, onboarding, protected conflict, relay objectives, and competitive seasons. Planned features and version numbers are proposals; the roadmap records evidence when implementation is delivered.
+
 ## GHCR image
 
 The repository publishes one combined API and web image:
