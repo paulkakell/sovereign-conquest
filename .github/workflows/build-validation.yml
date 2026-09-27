@@ -51,7 +51,7 @@ jobs:
         shell: bash
         env:
           SC_IMAGE: sovereign-conquest:validation
-          SC_EXPECTED_VERSION: '01.06.04'
+          SC_EXPECTED_VERSION: '01.06.05'
           SC_HOST_PORT: '18082'
           SC_NAME_PREFIX: validation
           SC_DB_PASSWORD: BuildValidationDatabasePassword

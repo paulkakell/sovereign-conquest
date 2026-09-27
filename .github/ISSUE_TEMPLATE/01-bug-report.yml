@@ -1,0 +1,78 @@
+name: Bug report
+description: Report a reproducible gameplay, interface, or server defect.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For help, use [Q&A](https://github.com/paulkakell/sovereign-conquest/discussions/categories/q-a).
+        Report security vulnerabilities and exploitable cheating privately through
+        [Report a vulnerability](https://github.com/paulkakell/sovereign-conquest/security/advisories/new).
+        Remove passwords, tokens, administration keys, connection strings, and player data from attachments.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Copy the version from the game footer or /api/version. Include the image digest or commit when available.
+      placeholder: "01.06.05, image digest, or commit SHA"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Account or sign-in
+        - Exploration and movement
+        - Trading and economy
+        - Combat and defenses
+        - Planets and production
+        - Corporations and messages
+        - Seasons, events, and rankings
+        - Interface or accessibility
+        - Installation or server operation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include commands, starting conditions, and whether this happens consistently.
+      placeholder: "1. Start with...\n2. Run...\n3. Observe..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Explain the result and its effect on the player or server.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser and OS; for operators, deployment method, image, and PostgreSQL version. Describe relevant settings without their secret values.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized logs or screenshots
+      description: Include only the relevant excerpt. Never attach a complete .env file, database dump, or authentication header.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: This report contains no secrets, personal player data, or security exploit details.
+          required: true

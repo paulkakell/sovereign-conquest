@@ -1,0 +1,15 @@
+body:
+  - type: markdown
+    attributes:
+      value: Share a strategy, server project, tool, or story from your galaxy. Do not reveal another player's private information or confidential corporation intelligence.
+  - type: textarea
+    id: showcase
+    attributes:
+      label: What would you like to share?
+      description: Explain what you made or learned, and include public links or screenshots if useful.
+    validations:
+      required: true
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What feedback would help?

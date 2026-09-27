@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and troubleshooting
+    url: https://github.com/paulkakell/sovereign-conquest/discussions/categories/q-a
+    about: Ask for gameplay, installation, or server help.
+  - name: Game ideas and balance discussion
+    url: https://github.com/paulkakell/sovereign-conquest/discussions/categories/ideas
+    about: Discuss concepts and tradeoffs before requesting implementation.
+  - name: Report a security vulnerability privately
+    url: https://github.com/paulkakell/sovereign-conquest/security/advisories/new
+    about: Report account, authorization, data exposure, or exploitable cheating flaws without public disclosure.

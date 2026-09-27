@@ -1,0 +1,32 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask about gameplay, installation, or server operation. Mark a reply as the answer when it resolves your question.
+        Never post credentials, full environment files, database dumps, or private player data.
+        Use [private reporting](https://github.com/paulkakell/sovereign-conquest/security/advisories/new) for security vulnerabilities.
+  - type: input
+    id: version
+    attributes:
+      label: Version and environment
+      description: Include the game version and browser, or deployment method for server questions.
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: What are you trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: attempts
+    attributes:
+      label: What have you tried?
+      description: Include documentation consulted and the result. It is fine to say you have not tried anything yet.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized errors or screenshots
+      description: Share only the relevant excerpt after removing sensitive information.
