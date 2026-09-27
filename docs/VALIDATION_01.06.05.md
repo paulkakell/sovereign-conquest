@@ -78,8 +78,9 @@ claim is made about external metrics or alerts on a deployed server. No live
 database upgrade or restore is performed by this community configuration release.
 
 Discussions and private vulnerability reporting were verified enabled. Category
-names and slugs were read from GitHub. Sponsors enrollment and payout status are
-not established by adding `FUNDING.yml`; verify the actual destination separately.
+names and slugs were read from GitHub. The public Sponsors address redirected to
+the owner's regular profile on 2026-09-27, so an active receiving page could not
+be verified. Sponsorship activation or an existing funding URL is still needed.
 GitHub form rendering must be checked after the files reach the default branch.
 
 ## Rollback

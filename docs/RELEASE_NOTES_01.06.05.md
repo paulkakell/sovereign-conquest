@@ -26,7 +26,9 @@ fixes for missing community entry points. No breaking application change.
 
 Discussions and private vulnerability reporting were already enabled and verified
 on 2026-09-27. This release supplies the repository files that make those channels
-useful. It does not claim that Sponsors enrollment or payouts have been completed.
+useful. The public Sponsors address currently redirects to the owner's regular
+profile. Funding is configured, but receiving sponsorships still needs an active
+Sponsors page or a verified alternative funding URL.
 
 ## Validation
 

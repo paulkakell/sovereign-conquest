@@ -22,7 +22,7 @@
 - Preserve dependency manifests and vendored sources; no dependency updates.
 
 Base: `d3a8e23c9e7975895d55d21cb8d513821cacc9d9` (v01.06.04, PR #23).
-No separate issue was opened for this user-requested repository setup.
+Release pull request: #24. No separate issue was opened for this repository setup.
 See [release notes](docs/RELEASE_NOTES_01.06.05.md),
 [validation](docs/VALIDATION_01.06.05.md),
 [community guide](docs/COMMUNITY.md), and

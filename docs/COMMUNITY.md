@@ -69,11 +69,11 @@ GitHub requires that account to have an active Sponsors profile before it can
 receive sponsorships. The funding file does not enroll the account, configure
 payouts, create sponsorship tiers, or establish any sponsor benefits.
 
-The repository setup includes the funding destination; account enrollment and
-payment acceptance must be checked separately at
-[GitHub Sponsors](https://github.com/sponsors/paulkakell). If the destination is
-unavailable, the owner must finish Sponsors setup or supply a verified alternative
-funding URL before the button can serve as a working payment route.
+On 2026-09-27, the public [Sponsors address](https://github.com/sponsors/paulkakell)
+redirected to the owner's regular GitHub profile instead of showing sponsorship
+tiers. The funding destination is configured, but an active receiving page was
+not available. The owner must finish Sponsors activation or supply a verified
+alternative funding URL before the button can serve as a working payment route.
 
 To use an approved external destination, add a `custom` entry with its HTTPS URL
 to `FUNDING.yml`. Verify ownership and the final destination before publishing.
