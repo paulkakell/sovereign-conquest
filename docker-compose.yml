@@ -2,19 +2,23 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    entrypoint: ["bash", "/opt/sc-db/entrypoint.sh"]
+    command: ["postgres"]
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./docker/db:/opt/sc-db:ro
     expose:
       - "5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD", "bash", "/opt/sc-db/check.sh"]
       interval: 5s
       timeout: 3s
       retries: 20
+      start_period: 60s
     networks:
       - backend
 
@@ -26,7 +30,10 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-development}
       TRUST_PROXY_HEADERS: "false"
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+      DATABASE_URL: postgres://db:5432/?sslmode=disable
+      PGUSER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGDATABASE: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_SECRET: ${ADMIN_SECRET:-}
       INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-admin}

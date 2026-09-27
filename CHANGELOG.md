@@ -1,5 +1,36 @@
 # Changelog
 
+## 01.06.07 - 2026-09-27
+
+### Fixes
+
+- Reconcile the configured PostgreSQL database and login on every container
+  startup, including existing volumes, missing roles/databases, password changes,
+  and disabled or expired logins. No databases or tables are deleted.
+- Replace `pg_isready` with a password-authenticated query and block readiness
+  until private startup reconciliation finishes.
+- Pass Compose credentials through PGUSER, PGPASSWORD, and PGDATABASE so literal
+  punctuation cannot corrupt the API connection URL.
+
+### Additive
+
+- Add PostgreSQL container regression tests, required database release gates,
+  structured startup events, deployment examples, and credential rollback steps.
+
+### Compatibility
+
+- Patch release fixing deployment startup. No API, schema, dependency manifest,
+  or gameplay changes. Existing role privileges and object ownership are retained.
+- Compose deployments must include `docker/db/`. Empty credentials and template
+  databases are rejected. Environment credentials become authoritative on restart.
+
+Base: `c3de81af4d471e7cf327e6f43df96ff321a6b04a` (v01.06.06, PRs #25 and #26).
+Retains the released API runtime security fixes and registry digest verification.
+Reference: user-requested startup repair; no separate issue was opened.
+See [release notes](docs/RELEASE_NOTES_01.06.07.md),
+[validation](docs/VALIDATION_01.06.07.md), and
+[copyable commit notes](docs/COMMIT_NOTES_01.06.07.md).
+
 ## 01.06.06 - 2026-09-27
 
 ### Fixes

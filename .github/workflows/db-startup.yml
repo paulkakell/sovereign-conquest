@@ -1,0 +1,30 @@
+name: Database Startup
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, 'release-*', 'compose-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-startup-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Lint database scripts
+        run: |
+          bash -n docker/db/entrypoint.sh docker/db/reconcile.sh docker/db/check.sh
+          shellcheck docker/db/*.sh
+      - name: Exercise fresh and existing PostgreSQL volumes
+        run: python3 scripts/test-db-startup.py
