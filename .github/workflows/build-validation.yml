@@ -33,12 +33,8 @@ jobs:
           bash -n scripts/release-smoke.sh
           python3 -m unittest discover -s scripts -p 'test_container_security.py' -v
 
-      - name: Validate GHCR Compose contract
-        shell: bash
-        run: |
-          cp .env.example .env
-          docker compose config --quiet
-          docker compose config --images | grep -Fxq 'ghcr.io/paulkakell/sovereign-conquest:main'
+      - name: Validate Compose settings and environment contract
+        run: python3 -m unittest discover -s scripts -p 'test_compose_config.py' -v
 
       - name: Build combined image
         run: docker build --pull --tag sovereign-conquest:validation .
@@ -94,7 +90,7 @@ jobs:
         shell: bash
         env:
           SC_IMAGE: sovereign-conquest:validation
-          SC_EXPECTED_VERSION: '01.06.08'
+          SC_EXPECTED_VERSION: '01.06.09'
           SC_HOST_PORT: '18082'
           SC_NAME_PREFIX: validation
           SC_DB_PASSWORD: BuildValidationDatabasePassword
