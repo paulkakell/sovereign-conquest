@@ -140,4 +140,9 @@ Compose no longer consumes build arguments. Manual `docker build` operations con
 
 ## Rollback
 
-Restore the prior Compose file and set `SC_IMAGE` to the previously verified image digest. The Compose change does not alter the PostgreSQL schema or stored game data, so database rollback is not required for this deployment change.
+To reverse a credential change, restore the prior environment values and recreate
+`db` and `api` while the new startup scripts are still installed. Then restore the
+prior Compose file and set `SC_IMAGE` to the previously verified image digest.
+The application schema and stored game rows require no migration reversal.
+Newly created databases and roles remain available. Preserve the data volume;
+see [database rollback](DATABASE_STARTUP.md#rollback) for the complete sequence.

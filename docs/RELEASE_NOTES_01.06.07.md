@@ -8,6 +8,11 @@ reconciled before the service becomes healthy. Existing data and ownership are
 preserved. The API receives literal credentials through PostgreSQL environment
 variables so reserved URL characters cannot break its connection.
 
+Health checks require SCRAM on IPv4 loopback even when an existing HBA file trusts
+localhost. The original HBA is included without being rewritten. A disabled
+bootstrap administrator is enabled only when it is the configured login being
+repaired; unrelated disabled administrators remain disabled.
+
 Update the repository checkout, including `docker/db/`, and recreate both services:
 
 ```bash

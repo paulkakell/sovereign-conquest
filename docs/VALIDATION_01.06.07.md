@@ -14,21 +14,50 @@ Validation date: 2026-09-27.
 | `go mod verify` | All modules verified |
 | Gosec | Passed without findings |
 | Govulncheck | Zero reachable or imported-package vulnerabilities; module-only GO-2026-5932 concerns unused `x/crypto/openpgp` |
-| `node --test scripts/*.test.cjs` | 64 tests passed, including the required database publication gate |
+| `node --test scripts/*.test.cjs` | 89 tests passed, including the required database publication gate |
+| Container security policy tests | 21 Python tests passed |
 | Browser JavaScript and Bash syntax | Passed |
 | ShellCheck 0.11.0 | All database scripts and release smoke script passed |
 | Python integration runner syntax | Compiled successfully |
-| YAML | 19 files parsed with duplicate-key rejection |
+| YAML | 20 files parsed with duplicate-key rejection |
 | Docker Compose 5.5.1 | Configuration validated; required credentials, read-only script mount, credential mapping, and health dependency checked |
 | Clean Go build | Go 1.27.1, empty build cache, `CGO_ENABLED=0`, `-trimpath`, `-mod=vendor` passed |
 | Whitespace | `git diff --check` passed |
-| Previous release | Git tag and published GitHub release `v01.06.05` verified available; prior container was not pulled |
+| Previous release | Git tag and published GitHub release `v01.06.06` verified available; prior container was not pulled locally |
 
-Docker and PostgreSQL are unavailable in the editing environment. Actual
-PostgreSQL integration, image builds, container vulnerability scans, startup
-timings, and hosted CodeQL are configured in GitHub Actions. Hosted outcomes will
-be recorded when runs complete. No deployment or release-tag publication is
-claimed by these local results.
+## Completed hosted checks
+
+The following PR runs passed for source commit
+`42fbf5ce59c0f3be28dac9695ff3fc4f92f36edb`. The subsequent validation-record
+commit changes documentation only; consult PR #27 for its own exact-commit runs.
+
+| Workflow | Evidence and result |
+| --- | --- |
+| [CI](https://github.com/paulkakell/sovereign-conquest/actions/runs/36350289773) | All unit/regression and race tests, release safeguards, formatting, module verification, vet, Gosec, Govulncheck, and Compose validation passed |
+| [Database Startup](https://github.com/paulkakell/sovereign-conquest/actions/runs/36350289727) | ShellCheck and all 13 PostgreSQL 16 container scenarios passed in 40.6 seconds |
+| [Build Validation](https://github.com/paulkakell/sovereign-conquest/actions/runs/36350289846) | Clean combined/API/web images built; both API runtime inventories, vulnerability policies, SBOM generation, and application smoke tests passed; CodeQL passed |
+
+The database suite includes empty and populated volumes, unchanged restart,
+password rotation and reversal, missing database/login, renamed bootstrap
+administrator, disabled/expired login, quoted identifiers and passwords, legacy
+trust rules, invalid configuration, failed repair, readiness failures, and abrupt
+restart. Existing-volume readiness took approximately 0.4 to 0.73 seconds;
+fresh initialization took 1.68 to 1.70 seconds on that runner, excluding image
+pull time. This is startup evidence, not an application load-test claim.
+
+The initial container run exposed localhost trust bypass and a disabled bootstrap
+login preventing repair. Commit `42fbf5c` fixes both; the successful scenarios
+verify rejection of wrong/old passwords and preservation of stored game rows.
+
+GitHub's separate [AI code-scanning run](https://github.com/paulkakell/sovereign-conquest/actions/runs/36350290648)
+could not execute: its service returned HTTP 400, "The requested model is not
+supported." That check remains a service failure, not a passing scan. No scan was
+disabled or bypassed. CodeQL, Gosec, and the container security checks passed.
+
+Docker and PostgreSQL are unavailable locally; the runtime evidence above comes
+from GitHub Actions. No production deployment, merge, new release tag, or GHCR
+publication has occurred for this branch. Publication/finalization workflows
+remain gated for a future merge to main.
 
 ## Required gates
 

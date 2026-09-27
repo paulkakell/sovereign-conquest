@@ -8,7 +8,10 @@
   startup, including existing volumes, missing roles/databases, password changes,
   and disabled or expired logins. No databases or tables are deleted.
 - Replace `pg_isready` with a password-authenticated query and block readiness
-  until private startup reconciliation finishes.
+  until private startup reconciliation finishes. Require SCRAM on IPv4 loopback
+  through a runtime HBA include so legacy localhost trust cannot bypass the check.
+- Recover a disabled bootstrap login only when it is the exact configured user;
+  never enable an unrelated disabled administrator.
 - Pass Compose credentials through PGUSER, PGPASSWORD, and PGDATABASE so literal
   punctuation cannot corrupt the API connection URL.
 
@@ -26,6 +29,7 @@
 
 Base: `c3de81af4d471e7cf327e6f43df96ff321a6b04a` (v01.06.06, PRs #25 and #26).
 Retains the released API runtime security fixes and registry digest verification.
+Release pull request: #27. Implementation: `144f4bf`; regression fixes: `42fbf5c`.
 Reference: user-requested startup repair; no separate issue was opened.
 See [release notes](docs/RELEASE_NOTES_01.06.07.md),
 [validation](docs/VALIDATION_01.06.07.md), and
