@@ -79,8 +79,12 @@ The user authorized GitHub publication on 2026-09-27 after the initial automatic
 approval review blocked a push under the verification-only request. The local
 Git transport lacks write credentials, so publication uses the connected GitHub
 account and preserves the complete validated tree on `compose-settings-01.06.09`.
-Hosted checks are pending publication of that branch; results will be recorded
-once the workflows finish. No release image or source tag is yet published.
+The branch is published in PR #29 at `57b1c3ecdbfce71624baf5ddfa2fe5dcbf3b1723`.
+Initial hosted Build Validation run 36356301198 found that the runner's Compose
+omits false-valued `create_host_path` from normalized JSON. The regression now
+accepts absent/false and still rejects true; the deployment configuration and
+its explicit `create_host_path: false` remain unchanged. Hosted checks rerun on
+the corrected commit. No release image or source tag is yet published.
 
 Do not infer image publication or deployment from local configuration validation.
 The default 01.06.09 image is not yet published. Use a verified 01.06.08 image as

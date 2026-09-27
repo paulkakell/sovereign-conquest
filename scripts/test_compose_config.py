@@ -174,7 +174,9 @@ class ComposeConfigurationTests(unittest.TestCase):
                     self.assertEqual(service["restart"], "unless-stopped")
                 mount = next(v for v in db["volumes"] if v["target"] == "/opt/sc-db")
                 self.assertTrue(mount["read_only"])
-                self.assertFalse(mount["bind"]["create_host_path"])
+                # Some Compose versions omit false-valued options from JSON.
+                # An explicit true must still fail this hardening check.
+                self.assertFalse(mount.get("bind", {}).get("create_host_path", False))
                 data = next(v for v in db["volumes"] if v["target"] == "/var/lib/postgresql/data")
                 if profile == PROFILES[0]:
                     self.assertEqual(mount["source"], str(ROOT / "docker/db"))

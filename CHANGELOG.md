@@ -21,6 +21,8 @@
 - Exercise real Compose rendering with nine regression tests covering every
   example setting, missing/empty required values, literal credentials, overrides,
   storage, networks, health, and hardening; run them in CI/build/publication gates.
+  Accept equivalent omitted/false JSON options across Compose versions while
+  continuing to reject automatic creation of the script mount directory.
 - Add guarded 01.06.09 release finalization, 20 release-safeguard regressions,
   full configuration documentation, validation, release notes, and rollback.
 
