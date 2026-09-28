@@ -117,9 +117,9 @@ button.ghost:hover { border-color: var(--accent); }
   margin-bottom: 14px;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 10px;
-  text-align: right;
+  text-align: left;
 }
 .cmd > * { max-width: 100%; }
 .cmd h2, .cmd .msg { margin: 0; }
@@ -127,14 +127,14 @@ button.ghost:hover { border-color: var(--accent); }
 .cmd .cmdline {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 10px;
   width: min(100%, 640px);
 }
-.cmd input { min-width: 0; text-align: right; }
-.cmd button { margin-top: 0; text-align: right; }
+.cmd input { min-width: 0; text-align: left; }
+.cmd button { margin-top: 0; text-align: left; }
 .cmd .msg, .cmd .help { overflow-wrap: anywhere; }
-.cmd summary { width: fit-content; margin-left: auto; cursor: pointer; }
+.cmd summary { width: fit-content; margin-right: auto; cursor: pointer; }
 .cmd .pre { white-space: pre-wrap; }
 
 .dmRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
