@@ -120,7 +120,7 @@ jobs:
 
       - name: Record existing code scanning alerts
         if: github.event_name != 'pull_request'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const alerts = await github.paginate(github.rest.codeScanning.listAlertsForRepo, {
@@ -164,7 +164,7 @@ jobs:
 
       - name: Verify default-branch alert resolution
         if: github.ref == 'refs/heads/main'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const alerts = await github.paginate(github.rest.codeScanning.listAlertsForRepo, {

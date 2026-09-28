@@ -31,7 +31,7 @@ jobs:
         run: node --test scripts/finalize-release.test.cjs
 
       - name: Finalize validated release and remove incorporated branches
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const finalize = require('./scripts/finalize-release.cjs');

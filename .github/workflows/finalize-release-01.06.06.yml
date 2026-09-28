@@ -30,7 +30,7 @@ jobs:
         run: node --test scripts/*.test.cjs
 
       - name: Publish validated security release
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const finalize = require('./scripts/finalize-security-release.cjs');
