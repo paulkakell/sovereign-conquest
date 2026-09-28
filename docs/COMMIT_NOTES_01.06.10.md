@@ -1,6 +1,8 @@
 # Commit notes for 01.06.10
 
 Implementation commit: `6f088424a78e85a05fd59c57702b367e0bbeea22`; PR #30.
+Validated integration fixture: `1147a87f33ce28d4d8e184bef4c3260984f710b8`.
+CI, container builds/scans/integration, CodeQL and PostgreSQL regressions passed.
 
 ```text
 fix(auth): validate startup secrets and enforce bcrypt limits (01.06.10)

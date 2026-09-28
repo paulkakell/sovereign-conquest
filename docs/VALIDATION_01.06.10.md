@@ -58,7 +58,9 @@ load benchmark. Invalid startup exits 1 and keeps the existing log prefix.
 
 ## Hosted validation evidence
 
-Implementation source: `6f088424a78e85a05fd59c57702b367e0bbeea22`, PR #30.
+Validated source: `1147a87f33ce28d4d8e184bef4c3260984f710b8`, PR #30.
+All repository validation gates passed on this source before the final
+documentation-only evidence update. Main publication reruns the same gates.
 The API/runtime/configuration implementation is unchanged by the subsequent
 validation-record and integration-fixture update. The first container run passed
 startup validation, builds, inventory checks, scans and CodeQL, then exceeded the
@@ -68,9 +70,9 @@ within the existing 10-request window. Rate limiting is unchanged and enabled.
 
 | Gate | Evidence |
 |---|---|
-| CI | [Run 36366312180](https://github.com/paulkakell/sovereign-conquest/actions/runs/36366312180) |
-| Build Validation | [Run 36366312209](https://github.com/paulkakell/sovereign-conquest/actions/runs/36366312209) |
-| Database Startup | [Run 36366312232](https://github.com/paulkakell/sovereign-conquest/actions/runs/36366312232) |
+| CI | Passed: [Run 36366629648](https://github.com/paulkakell/sovereign-conquest/actions/runs/36366629648). Unit/race tests, formatting, module verification, vet, Gosec, Govulncheck and Compose checks. |
+| Build Validation | Passed: [Run 36366629647](https://github.com/paulkakell/sovereign-conquest/actions/runs/36366629647). Three image builds, both API inventories/scans/SBOMs, both startup/password integration suites and CodeQL. |
+| Database Startup | Passed: [Run 36366629650](https://github.com/paulkakell/sovereign-conquest/actions/runs/36366629650). Shell lint and all 15 PostgreSQL startup/recovery regressions. |
 
 GitHub's additional AI findings job failed before analysis because its configured
 model was unsupported (`CAPIError: 400 The requested model is not supported`).
