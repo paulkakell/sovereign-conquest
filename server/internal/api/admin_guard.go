@@ -50,12 +50,11 @@ func (g *administratorGuard) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var isAdmin bool
-	if err := g.pool.QueryRow(r.Context(), "SELECT is_admin FROM users WHERE id=$1", claims.UserID).Scan(&isAdmin); err != nil {
-		writeError(w, http.StatusUnauthorized, "administrator authentication required")
+	session, err := auth.LoadSession(r.Context(), g.pool, claims.UserID, claims.PlayerID)
+	if !checkSession(w, session, claims, err) {
 		return
 	}
-	if !isAdmin {
+	if !session.IsAdmin || session.MustChangePassword {
 		writeError(w, http.StatusForbidden, "administrator access required")
 		return
 	}

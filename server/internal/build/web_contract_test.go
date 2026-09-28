@@ -32,9 +32,10 @@ func TestCompatibilityAssetsAreShipped(t *testing.T) {
 	bug := string(bugPage)
 	client := string(compat)
 	for _, required := range []string{
-		"/compat-010601.js?v=01.06.13",
-		"/app.js?v=01.06.13",
-		"/style.css?v=01.06.13",
+		"/compat-010601.js?v=01.07.00",
+		"/app.js?v=01.07.00",
+		"/admin-users.js?v=01.07.00",
+		"/style.css?v=01.07.00",
 		"/bug.html",
 	} {
 		if !strings.Contains(shell, required) {
@@ -50,11 +51,11 @@ func TestCompatibilityAssetsAreShipped(t *testing.T) {
 			t.Fatalf("compatibility script missing %q", required)
 		}
 	}
-	if !strings.Contains(shell, `<small>v<span id="ver">01.06.13</span>`) {
-		t.Fatal("main web version badge must render v01.06.13")
+	if !strings.Contains(shell, `<small>v<span id="ver">01.07.00</span>`) {
+		t.Fatal("main web version badge must render v01.07.00")
 	}
-	if !strings.Contains(bug, `id="bugVersion">v01.06.13</div>`) {
-		t.Fatal("bug-report version badge must render v01.06.13")
+	if !strings.Contains(bug, `id="bugVersion">v01.07.00</div>`) {
+		t.Fatal("bug-report version badge must render v01.07.00")
 	}
 	for _, stale := range []string{"v01.06.02", "v01.06.01", "v01.06.00", "v01.05.09", "v01.04.00"} {
 		if strings.Contains(shell, stale) || strings.Contains(bug, stale) {

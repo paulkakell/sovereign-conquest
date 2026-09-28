@@ -1,14 +1,14 @@
 # Sovereign Conquest
 
-Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. This source version is **v01.06.13**.
+Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. This source version is **v01.07.00**.
 
-## Current maintenance release
+## Current feature release
 
-See the [01.06.13 release notes](docs/RELEASE_NOTES_01.06.13.md),
-[validation record](docs/VALIDATION_01.06.13.md), and
-[existing code review findings](docs/CODE_REVIEW_01.06.04.md). This maintenance
-release corrects the Command pane to left alignment on desktop and mobile, including
-its heading, input, Send button, feedback and expandable Help.
+See the [01.07.00 release notes](docs/RELEASE_NOTES_01.07.00.md),
+[validation record](docs/VALIDATION_01.07.00.md), and
+[existing code review findings](docs/CODE_REVIEW_01.06.04.md). This release adds administrator user management, account and player editing,
+password resets, suspension and banning, with enforced session revocation.
+See the [User Management guide and API](docs/USER_MANAGEMENT.md).
 See the [web file security contract](docs/WEB_FILE_SECURITY.md),
 [password API contract](docs/API_PASSWORDS.md), and
 [database startup guide](docs/DATABASE_STARTUP.md). The roadmap implementation packets remain planned. Use one API
@@ -37,11 +37,11 @@ The first milestone addresses database migration coverage, port demand, repeatab
 The repository publishes one combined API and web image:
 
 ```bash
-docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.13
+docker pull ghcr.io/paulkakell/sovereign-conquest:01.07.00
 docker pull ghcr.io/paulkakell/sovereign-conquest:main
 ```
 
-`01.06.13` is the release image tag, available only after all release gates pass. `v01.06.12` remains the rollback source baseline. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
+`01.07.00` is the release image tag, available only after all release gates pass. `v01.06.13` remains the rollback source baseline. Read the moderation-aware rollback procedure before downgrading. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
 
 The publication workflow scans and smoke-tests the built image before moving public tags. It also emits a source-SHA tag and provenance attestation. See the [container security review](docs/SECURITY_REVIEW_01.06.06.md) for the reported CVEs and verification policy.
 
@@ -117,7 +117,7 @@ The former standalone `web` service has been removed. Use `docker compose logs a
 A local source build remains available outside Compose:
 
 ```bash
-docker build -t sovereign-conquest:01.06.13 .
+docker build -t sovereign-conquest:01.07.00 .
 ```
 
 The combined image serves the API and web UI on port 8080. Production mode rejects weak secrets and database connections without transport verification.
@@ -175,6 +175,20 @@ EVENTS
 RANKINGS
 SEASON
 ```
+
+## User Management
+
+Sign in as an administrator and finish any required password change. Click
+**User Management**, search for an account, then click **Edit**. Edit the account,
+player, ship or cargo fields and click **Save changes**. Under **Account access**,
+enter a reason and choose **Suspend user**, **Ban user**, or **Restore access**.
+Suspensions optionally end at a specified local date/time. Bans require manual
+restoration. Existing sessions are revoked when access or credentials change.
+
+IDs and audit timestamps are read-only. Passwords are reset without displaying
+hashes. Administrators cannot suspend, ban or demote themselves. Account changes
+are validated and audited in one transaction. See the [field reference,
+examples, security behavior and rollback guide](docs/USER_MANAGEMENT.md).
 
 ## Administrator season reset
 

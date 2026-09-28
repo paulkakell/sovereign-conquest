@@ -205,6 +205,7 @@
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Password change failed");
+      if (payload.token) localStorage.setItem(TOKEN_KEY, payload.token);
       passwordChangeRequired = false;
       window.location.reload();
     } catch (error) {

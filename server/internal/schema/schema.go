@@ -311,6 +311,6 @@ CREATE INDEX IF NOT EXISTS idx_direct_message_attachments_message_id ON direct_m
 `
 
 func Ensure(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, ddl)
+	_, err := pool.Exec(ctx, ddl+userManagementDDL)
 	return err
 }

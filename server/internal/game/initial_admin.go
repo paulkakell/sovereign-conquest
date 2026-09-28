@@ -32,6 +32,10 @@ const (
 
 func decideInitialAdminPlan(userFound bool, existingIsAdmin bool, anyAdminsExist bool) initialAdminPlan {
 	if !userFound {
+		if anyAdminsExist {
+			// An administrator may have renamed the bootstrap account.
+			return planNoopExistingNonAdmin
+		}
 		return planCreateNew
 	}
 	if existingIsAdmin {
@@ -128,7 +132,9 @@ func EnsureInitialAdmin(ctx context.Context, pool *pgxpool.Pool, username, passw
 			SET is_admin=true,
 				must_change_password=true,
 				password_hash=$2,
-				password_changed_at=now()
+				password_changed_at=now(),
+				session_version=session_version+1,
+				account_revision=account_revision+1
 			WHERE id=$1
 		`, existingUserID, hash); err != nil {
 			return InitialAdminResult{}, err
