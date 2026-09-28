@@ -1,12 +1,12 @@
 # Sovereign Conquest Configuration
 
-This guide describes the configuration contract for version 01.06.09.
+This guide describes the configuration contract for version 01.06.10.
 
 ## Deployment profiles
 
 `docker-compose.yml` is a local-development profile. It pulls the combined API and web image from GHCR and does not contain Docker build definitions. PostgreSQL remains a separate service on the internal Compose network.
 
-Both profiles default to `ghcr.io/paulkakell/sovereign-conquest:01.06.09`. Use that tag only after publication gates pass. A verified digest gives immutable image identity; the publication workflow can refresh a version tag when rebuilding its base images. `main` remains an explicit opt-in moving tag.
+Both profiles default to `ghcr.io/paulkakell/sovereign-conquest:01.06.10`. Use that tag only after publication gates pass. A verified digest gives immutable image identity; the publication workflow can refresh a version tag when rebuilding its base images. `main` remains an explicit opt-in moving tag.
 
 The Compose profile uses local database transport and publishes loopback-only development ports. Do not expose it directly to the public Internet.
 
@@ -17,7 +17,7 @@ The active GHCR workflow publishes:
 | Tag | Purpose |
 |---|---|
 | `main` | Moving image for the current default branch |
-| `01.06.09` | Release image; published after successful release gates |
+| `01.06.10` | Release image; published after successful release gates |
 | `sha-<source-sha>` | Source-specific traceability |
 
 The candidate image is scanned and smoke-tested against fresh PostgreSQL before public tags move. The same validated image is pushed and attested. Scans include unfixed vulnerabilities and explicitly reject every CVE listed in the 01.06.06 security review, regardless of severity.
@@ -26,7 +26,7 @@ The candidate image is scanned and smoke-tested against fresh PostgreSQL before 
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `SC_IMAGE` | `ghcr.io/paulkakell/sovereign-conquest:01.06.09` | Combined API and web image |
+| `SC_IMAGE` | `ghcr.io/paulkakell/sovereign-conquest:01.06.10` | Combined API and web image |
 | `SC_PULL_POLICY` | `always` | Pull on startup; use `missing` for cached releases or `never` for an already loaded local image |
 | `WEB_PORT` | `3000` | Browser-facing host port |
 | `API_PORT` | `8080` | Compatibility host port for direct API access |
@@ -99,13 +99,52 @@ quoted value with a backslash. No URL encoding is required. Compose's host shell
 values override `.env`, so clear stale exported settings before verification.
 Use `config --quiet`; full `config` output includes resolved secrets. Keep `.env`
 private (`chmod 600 .env`); Git ignores it. Compose's required-value checks reject
-missing/empty values, not weak nonempty values. Production minimum lengths are
-checked separately by the API. Bootstrap usernames/passwords are trimmed by the
-application, so avoid leading or trailing whitespace.
+missing/empty values. The API additionally enforces the following limits at
+every normal startup, including `APP_ENV=development`, before connecting to the
+database, changing the schema, creating an administrator, or starting jobs.
+
+| Value | Startup requirement | Upper limit |
+|---|---|---|
+| `POSTGRES_PASSWORD` | Effective database password must be nonempty | No application-defined maximum |
+| `JWT_SECRET` | At least 32 bytes after trimming surrounding whitespace | No application-defined maximum |
+| `ADMIN_SECRET` | Empty disables season resets; otherwise at least 32 bytes after trimming | No application-defined maximum |
+| `INITIAL_ADMIN_PASSWORD` | 16-72 bytes after trimming surrounding whitespace | 72 bytes, required by bcrypt |
+
+ASCII characters each occupy one byte; Unicode characters may occupy several.
+For example, 36 copies of `é` occupy 72 UTF-8 bytes; 37 exceed the password limit.
+Generate four independent values with four separate runs of `openssl rand -hex 32`.
+Each result is 64 ASCII characters and fits every limit. Database passwords are
+used literally; bootstrap passwords are trimmed before hashing, as before.
+Signing/reset keys retain their literal value but cannot use surrounding
+whitespace to meet the minimum. Avoid surrounding whitespace in all secrets.
+
+Compose supplies `POSTGRES_PASSWORD` to the API as `PGPASSWORD`. Validation uses
+the database driver's resolved password, preserving its URL, environment,
+service-file, and password-file precedence. Direct deployments can continue
+supplying credentials in `DATABASE_URL` or through the driver's supported
+sources. No known database, JWT, or bootstrap credential is supplied as a
+configuration fallback when a secret is missing.
+
+Invalid settings cause exit status 1 and one descriptive log entry listing every
+detected secret failure. For example:
+
+```text
+configuration validation failed: JWT_SECRET: must contain at least 32 bytes after trimming surrounding whitespace (32 ASCII characters); INITIAL_ADMIN_PASSWORD: must contain 16-72 bytes after trimming surrounding whitespace (16-72 ASCII characters; bcrypt limit)
+```
+
+The log names variables and requirements; it never includes their supplied
+values, hashes, or connection URLs. Invalid database syntax produces a fixed
+`DATABASE_URL` diagnostic rather than a driver error that might contain secrets.
+`docker compose logs api` shows these errors. Fix the named values and recreate
+the API. Recreate both `db` and `api` after changing database credentials.
+With `restart: unless-stopped`, invalid startup will repeat until corrected.
+Compose itself rejects empty required settings before an API container is
+created; those earlier errors appear in the Compose/deployment log.
+The separate `healthcheck` command remains independent of startup configuration.
 
 ## Required production settings
 
-`APP_ENV=development` matches the bundled PostgreSQL service, which has no TLS configuration. `APP_ENV=production` enables secret-length and database-transport checks. Changing only this value makes the bundled stack fail validation because `DATABASE_URL` is fixed to `sslmode=disable`.
+`APP_ENV=development` matches the bundled PostgreSQL service, which has no TLS configuration. Secret validation applies to every environment. `APP_ENV=production` additionally requires database transport protection. Changing only this value makes the bundled stack fail validation because `DATABASE_URL` is fixed to `sslmode=disable`.
 
 `DATABASE_URL`, `HTTP_ADDR`, and `WEB_ROOT` are fixed container settings, not `.env` overrides in these profiles. Configure PostgreSQL TLS and certificates in a separate Compose override before enabling production, for example setting the API's `DATABASE_URL` to `postgres://db:5432/?sslmode=verify-full&sslrootcert=/run/certs/ca.crt` with the matching CA mount and server certificate. Setting that URL alone does not enable TLS on PostgreSQL. HTTPS on a reverse proxy protects browser traffic, not this database connection. Other `APP_ENV` values do not enable production checks.
 
@@ -213,7 +252,7 @@ Compose no longer consumes build arguments. Manual `docker build` operations con
 
 ## Rollback
 
-Restore the prior Compose file and `.env`, and set `SC_IMAGE` to the previously verified 01.06.08 image digest or release tag. Do not delete volumes. The Compose change does not alter the PostgreSQL schema or stored game data, so database rollback is not required for this deployment change.
+Restore the prior Compose file and `.env`, and set `SC_IMAGE` to the previously verified 01.06.09 image digest or release tag. Do not delete volumes. This release does not alter the PostgreSQL schema or stored game data, so database rollback is not required. Keep compliant secrets when rolling back; rotating a JWT key invalidates sessions, and changing the bootstrap setting does not reset an existing administrator password.
 
 ## Verification commands
 

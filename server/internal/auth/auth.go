@@ -10,6 +10,20 @@ import (
 
 const passwordHashCost = 12
 
+// Password limits are UTF-8 byte counts, matching bcrypt's input limit.
+const (
+	MinPasswordBytes = 8
+	MaxPasswordBytes = 72
+)
+
+// ValidatePasswordLength checks the account-password range without changing input.
+func ValidatePasswordLength(pw string) error {
+	if len(pw) < MinPasswordBytes || len(pw) > MaxPasswordBytes {
+		return errors.New("password must be 8-72 bytes (8-72 ASCII characters; Unicode characters may use multiple bytes)")
+	}
+	return nil
+}
+
 type Claims struct {
 	UserID         string `json:"uid"`
 	PlayerID       string `json:"pid"`

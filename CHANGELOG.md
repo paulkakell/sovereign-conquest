@@ -1,5 +1,37 @@
 # Changelog
 
+## 01.06.10 - 2026-09-27
+
+### Fixes
+
+- Validate all four secrets at API startup in every environment, before database
+  access. Inspect the effective PostgreSQL password, require 32-byte signing/reset
+  keys and a 16-72-byte bootstrap password, and retain the optional empty reset key.
+- Report all invalid settings in one descriptive container-log entry without
+  values or connection URLs. Exit 1 and remove built-in credential fallbacks.
+- Correct registration/password-change validation to bcrypt's actual 8-72-byte
+  range, returning HTTP 400 before hashing or database access instead of a 500.
+
+### Additive
+
+- Add boundary, Unicode, redaction, startup-process and actual-container tests.
+  Exercise valid passwords and rejected changes against fresh PostgreSQL for
+  both API images. Add guarded release finalization and password API docs.
+
+### Compatibility
+
+- Configuration tightening: weak development signing/bootstrap secrets now stop
+  API startup. This is an intentional startup compatibility change. Existing
+  compliant deployments, optional reset-key behavior and login hashes remain valid.
+- No schema, dependency, gameplay, API shape or persistence-format changes.
+  Existing overlength account-password requests now receive a descriptive 400.
+
+Base: `1b1b03d0eb8bb72efd4d6079292798eb2bd718d3` (v01.06.09, PR #29).
+Reference: user-requested startup validation and password-limit correction;
+no separate issue. See [release notes](docs/RELEASE_NOTES_01.06.10.md),
+[validation/security review](docs/VALIDATION_01.06.10.md), and
+[commit notes](docs/COMMIT_NOTES_01.06.10.md).
+
 ## 01.06.09 - 2026-09-27
 
 ### Fixes
