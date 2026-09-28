@@ -118,6 +118,26 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Record existing code scanning alerts
+        if: github.event_name != 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const alerts = await github.paginate(github.rest.codeScanning.listAlertsForRepo, {
+              ...context.repo, state: 'open', per_page: 100,
+            });
+            for (const alert of alerts) {
+              core.info(JSON.stringify({
+                number: alert.number, rule: alert.rule.id,
+                severity: alert.rule.security_severity_level,
+                description: alert.rule.description,
+                location: alert.most_recent_instance.location,
+                ref: alert.most_recent_instance.ref,
+                url: alert.html_url,
+              }));
+            }
+            core.info(`Open code scanning alerts: ${alerts.length}`);
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -136,3 +156,14 @@ jobs:
 
       - name: Analyze
         uses: github/codeql-action/analyze@v4
+        with:
+          output: codeql-results
+
+      - name: Retain CodeQL evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-results-${{ github.sha }}
+          path: codeql-results/*.sarif
+          if-no-files-found: error
+          retention-days: 30
