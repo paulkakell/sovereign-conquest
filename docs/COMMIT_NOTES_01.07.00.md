@@ -13,5 +13,6 @@ Document account/API fields, release validation and safe rollback.
 ```
 
 Classification: additive feature and authentication fix. Schema changes are
-additive. Base: v01.06.13 / 609a60c. Implementation and follow-up commit hashes
-are attached to the pull request; no hash is embedded into its own commit.
+additive. Base: v01.06.13 / 609a60c. Implementation commit: `6f079814aee3d7570ae3d292300035ba3615d12a`.
+[PR #34](https://github.com/paulkakell/sovereign-conquest/pull/34) includes the
+validation follow-up and final merge commit. No hash is embedded into its own commit.

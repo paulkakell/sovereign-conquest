@@ -13,23 +13,33 @@ Completed locally with Go 1.27.1:
 - JavaScript and shell syntax, HTML ID/asset wiring, and diff whitespace checks.
 - Clean CGO-disabled API build from the committed source archive with an empty build cache, vendored modules, GOPROXY=off, GOSUMDB=off and the normal buildvcs=false flag. Result is a statically linked Linux executable.
 
-Docker/PostgreSQL are unavailable in this local environment. Seven real
-PostgreSQL integration tests are implemented but skipped locally because
-SC_TEST_DATABASE_URL is unset. CI is configured to provision PostgreSQL 16 for the
-full Go suite/race run and the parallel session lookup benchmark. Cases include
-real authorization, updates/rollback, password resets, stale token denial,
-suspension/ban/restoration, concurrent demotions, pagination, bootstrap rename
-and migration reversal.
+## Hosted validation
 
-Hosted PostgreSQL/benchmark, clean container builds, Compose/database startup,
-image vulnerability and CodeQL checks remain pending. Automatic approval review
-rejected the branch push, requiring explicit authorization before publishing this
-commit to the public repository. No branch, pull request, release tag or image
-was published for 01.07.00. The existing v01.06.13 immutable GitHub release and
-source target 609a60c6b932784ebb02dc461653f8501bb8a967 were verified as available.
+All release checks passed on implementation commit
+`6f079814aee3d7570ae3d292300035ba3615d12a` in
+[PR #34](https://github.com/paulkakell/sovereign-conquest/pull/34):
 
-Implementation commit: 5ed8d261c38cc34a6fc2dda0871080b5f12ca257. A following
-local documentation commit records these results and corrects rollback guidance.
+- [CI run 36382572707](https://github.com/paulkakell/sovereign-conquest/actions/runs/36382572707): full Go and race suites against PostgreSQL 16, all seven database integration tests, JavaScript/form/release tests, formatting, module verification, vet, Gosec, Govulncheck, and all nine Compose contract tests passed.
+- [Build Validation run 36382572709](https://github.com/paulkakell/sovereign-conquest/actions/runs/36382572709): fresh combined/API/web image builds, runtime inventories, vulnerability policy, SBOM export, password/startup/gameplay smoke tests for both API images, and CodeQL high/critical gate passed.
+- [Database Startup run 36382572667](https://github.com/paulkakell/sovereign-conquest/actions/runs/36382572667): shell lint and fresh/existing PostgreSQL volume/credential checks passed.
+
+Database integration cases cover real authorization, account/player persistence,
+atomic rejection/rollback, missing-audit rollback, password resets, stale token
+denial, suspension/ban/restoration, concurrent demotions, pagination, bootstrap
+rename, migration reversal and repeatable backfill. They are also run under the
+Go race detector. Local tests skip these cases when SC_TEST_DATABASE_URL is unset;
+they were executed successfully in the hosted service.
+
+The four-worker parallel session benchmark completed 17,781 operations and reported
+67,738 ns/op. This is a localhost PostgreSQL benchmark, not end-to-end HTTP latency
+or a production load-capacity guarantee. It exercises the new indexed session
+lookup without bypassing the database.
+
+The documentation follow-up does not change application code. The PR's checks run
+again for that commit, and all main-branch release workflows must pass before the
+finalizer creates v01.07.00. The existing immutable v01.06.13 release and source
+`609a60c6b932784ebb02dc461653f8501bb8a967` remain available for the documented
+maintenance rollback.
 
 The control-browser preview was blocked by ERR_BLOCKED_BY_CLIENT for localhost.
 No rendered visual review is claimed. Automated DOM component tests exercise

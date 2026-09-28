@@ -15,8 +15,8 @@ Additive administrator feature with authentication fixes. Based on v01.06.13
 - Add real PostgreSQL integration, migration reversal, concurrency, session
   benchmark, form regression and release-safeguard coverage.
 
-See [User Management and API](USER_MANAGEMENT.md),
-[validation](VALIDATION_01.07.00.md) and [commit notes](COMMIT_NOTES_01.07.00.md).
+See [User Management and API](https://github.com/paulkakell/sovereign-conquest/blob/v01.07.00/docs/USER_MANAGEMENT.md),
+[validation](https://github.com/paulkakell/sovereign-conquest/blob/v01.07.00/docs/VALIDATION_01.07.00.md) and [commit notes](https://github.com/paulkakell/sovereign-conquest/blob/v01.07.00/docs/COMMIT_NOTES_01.07.00.md).
 IDs and system timestamps are read-only; level is derived from XP.
 
 API paths and existing response fields remain stable. Third-party clients changing
