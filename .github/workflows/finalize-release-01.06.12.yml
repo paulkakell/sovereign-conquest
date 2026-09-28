@@ -1,0 +1,37 @@
+name: Finalize Release 01.06.12
+
+on:
+  workflow_run:
+    workflows: [CI, Build Validation, Publish GHCR Image, Database Startup]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: finalize-release-01.06.12
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout validated source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Test release safeguards
+        run: node --test scripts/*.test.cjs
+
+      - name: Publish validated command-layout release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const finalize = require('./scripts/finalize-command-layout-release.cjs');
+            await finalize({ github, context, core });

@@ -1,5 +1,33 @@
 # Changelog
 
+## 01.06.12 - 2026-09-27
+
+### Fixes
+
+- Move Command directly below the topbar/Logout control and above Status.
+- Right-align all Command pane content: heading, input and placeholder text,
+  Send button, feedback, Help toggle and expanded command help.
+- Replace the mismatched outer two-column grid with a vertical layout. Keep the
+  input within narrow viewports and wrap long feedback/help without overflow.
+- Remove the mobile rule that stretched Send across the pane so the button
+  retains the same right alignment on small screens.
+
+### Additive
+
+- Document command entry and update active version/image/cache references.
+- Prepare guarded v01.06.12 tagging after all existing main-branch release gates.
+
+### Compatibility
+
+- Presentation-only fix; command parsing, keyboard order and Enter/Send behavior
+  are unchanged. No API, configuration option, dependency or database change.
+
+Base: `7a0758852727f252d1bf1e939ff73e4a6f6f3db2` (v01.06.11, PR #31).
+Reference: user-requested Command pane alignment; no separate issue.
+See [release notes](docs/RELEASE_NOTES_01.06.12.md),
+[validation](docs/VALIDATION_01.06.12.md), and
+[commit notes](docs/COMMIT_NOTES_01.06.12.md).
+
 ## 01.06.11 - 2026-09-27
 
 ### Fixes

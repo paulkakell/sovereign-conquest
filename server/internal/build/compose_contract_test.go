@@ -28,7 +28,7 @@ func TestComposeUsesCombinedGHCRImage(t *testing.T) {
 	envExample := string(envBytes)
 
 	for _, required := range []string{
-		`image: "${SC_IMAGE:-ghcr.io/paulkakell/sovereign-conquest:01.06.11}"`,
+		`image: "${SC_IMAGE:-ghcr.io/paulkakell/sovereign-conquest:01.06.12}"`,
 		`pull_policy: "${SC_PULL_POLICY:-always}"`,
 		`WEB_ROOT: "/app/web"`,
 		`127.0.0.1:${WEB_PORT:-3000}:8080`,
@@ -54,7 +54,7 @@ func TestComposeUsesCombinedGHCRImage(t *testing.T) {
 	}
 
 	for _, required := range []string{
-		"SC_IMAGE=ghcr.io/paulkakell/sovereign-conquest:01.06.11",
+		"SC_IMAGE=ghcr.io/paulkakell/sovereign-conquest:01.06.12",
 		"SC_PULL_POLICY=always",
 		"WEB_PORT=3000",
 		"API_PORT=8080",
