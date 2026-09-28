@@ -32,9 +32,28 @@ verification, a CGO-disabled static API build, Gosec, 179 JavaScript tests,
 26 Python policy/recovery tests, JavaScript/shell syntax and diff whitespace
 checks. Govulncheck found zero reachable or imported-package vulnerabilities;
 the existing unused-module advisory is reviewed separately below.
-Hosted results and the implementation reference will be recorded after completion.
 Docker is unavailable in the local workspace; clean container builds, real
 Compose rendering, database integration and image scans run on GitHub runners.
+
+## Hosted validation evidence
+
+Implementation: `8467d3b30319847bdc3a6aeb249be5175ec76e6e`, PR #31.
+All repository release checks passed for this source. A subsequent documentation
+commit records these results and the rollback digest; it does not change runtime,
+configuration, tests or workflow behavior. Main reruns the release gates before
+tagging and verifies alert resolution after CodeQL finishes processing.
+
+| Gate | Result and evidence |
+|---|---|
+| CI | Passed: [run 36372138600](https://github.com/paulkakell/sovereign-conquest/actions/runs/36372138600). Full unit/race suites, formatting, module verification, vet, Gosec, Govulncheck, 179 JavaScript safeguards and real Compose checks. |
+| Build Validation | Passed: [run 36372138513](https://github.com/paulkakell/sovereign-conquest/actions/runs/36372138513). Three clean container builds, both API inventory/vulnerability checks, startup/password integration against PostgreSQL, and CodeQL. SARIF has **zero findings**, compared with four high findings on the baseline. |
+| Database Startup | Passed: [run 36372138573](https://github.com/paulkakell/sovereign-conquest/actions/runs/36372138573). ShellCheck and all 15 PostgreSQL startup/recovery regressions. |
+
+GitHub's separate AI review failed before analysis with
+`CAPIError: 400 The requested model is not supported`, matching the pre-existing
+service failure documented for 01.06.10. This does not replace CodeQL or the
+repository's successful security gates. No check or security policy was disabled.
+[AI service failure](https://github.com/paulkakell/sovereign-conquest/actions/runs/36372140995).
 
 ## Security, dependencies and compatibility
 
@@ -58,6 +77,8 @@ Compose rendering, database integration and image scans run on GitHub runners.
 - Rollback: the prior source tag is preserved; use the retained 01.06.10 image
   digest and settings without deleting data. Rollback reintroduces the old
   handler, so eliminate external web symlinks first.
+  The prior GitHub release and publication run 36368207125 were verified;
+  its retained digest is included in the release notes.
 
 ## Performance
 

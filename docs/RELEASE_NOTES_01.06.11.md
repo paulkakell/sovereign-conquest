@@ -40,7 +40,13 @@ No credential rotation or database recreation is required.
 Restore the retained Compose/environment files and verified 01.06.10 image
 reference, then recreate the API without deleting volumes. The source baseline
 is `v01.06.10` at `d4654ff3234ce03382a51a9269352acd2a006ea3`.
-There is no schema rollback. Reverting restores the vulnerable web handler;
+The prior publication's verified image is:
+
+```text
+ghcr.io/paulkakell/sovereign-conquest@sha256:bd1f34c3c6f22b2e224f575a025a6308eeb7e472330add4b136d9e85b32e6af0
+```
+
+It is recorded in publication run 36368207125. There is no schema rollback. Reverting restores the vulnerable web handler;
 remove unsafe web symlinks before using the prior release.
 
 ## Validation and artifacts

@@ -30,6 +30,7 @@
   changes. The bundled web directory already meets the new constraints.
 
 Base: `d4654ff3234ce03382a51a9269352acd2a006ea3` (v01.06.10, PR #30).
+Implementation: `8467d3b30319847bdc3a6aeb249be5175ec76e6e`, PR #31.
 References: code scanning alerts [#2](https://github.com/paulkakell/sovereign-conquest/security/code-scanning/2),
 [#3](https://github.com/paulkakell/sovereign-conquest/security/code-scanning/3),
 [#4](https://github.com/paulkakell/sovereign-conquest/security/code-scanning/4), and
