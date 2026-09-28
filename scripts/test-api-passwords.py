@@ -23,34 +23,40 @@ class PasswordIntegrationTests(unittest.TestCase):
             return error.code, json.load(error)
 
     def test_registration_rejects_invalid_passwords_with_client_errors(self):
-        for password in ("short", "x" * 73, "x" * 100, "é" * 37):
+        for password in ("x" * 73, "é" * 37):
             with self.subTest(bytes=len(password.encode())):
                 status, body = self.request("register", {"username": "badlength", "password": password})
                 self.assertEqual(status, 400)
                 self.assertIn("8-72 bytes", json.dumps(body))
 
     def test_valid_boundaries_round_trip_and_invalid_changes_preserve_credentials(self):
+        # Keep this entire script to nine register/login requests, plus the one
+        # existing smoke-test registration: the real 10/5-minute limiter stays on.
+        accounts = []
         for password in ("x" * 8, "x" * 72, "é" * 36):
             with self.subTest(bytes=len(password.encode())):
                 username = "length" + secrets.token_hex(4)
                 status, body = self.request("register", {"username": username, "password": password})
                 self.assertEqual(status, 200)
-                token = body["token"]
-                status, _ = self.request("login", {"username": username, "password": password})
-                self.assertEqual(status, 200)
-                for invalid in ("short", "x" * 73, "x" * 100, "é" * 37):
-                    status, body = self.request("change_password", {"old_password": password, "new_password": invalid}, token)
-                    self.assertEqual(status, 400)
-                    self.assertIn("8-72 bytes", json.dumps(body))
-                status, _ = self.request("login", {"username": username, "password": password})
-                self.assertEqual(status, 200)
-                replacement = "y" * 72
-                status, _ = self.request("change_password", {"old_password": password, "new_password": replacement}, token)
-                self.assertEqual(status, 200)
-                status, _ = self.request("login", {"username": username, "password": replacement})
-                self.assertEqual(status, 200)
-                status, _ = self.request("login", {"username": username, "password": password})
-                self.assertEqual(status, 401)
+                accounts.append((username, password, body["token"]))
+        self.assertEqual(len(accounts), 3)
+        username, password, token = accounts[0]
+        # A successful change verifies the old hash as well as the new boundary.
+        for replacement in ("y" * 72, "é" * 36):
+            status, _ = self.request("change_password", {"old_password": password, "new_password": replacement}, token)
+            self.assertEqual(status, 200)
+            status, body = self.request("login", {"username": username, "password": replacement})
+            self.assertEqual(status, 200)
+            token = body["token"]
+            password = replacement
+        status, _ = self.request("login", {"username": username, "password": "y" * 72})
+        self.assertEqual(status, 401)
+        for invalid in ("short", "x" * 73, "x" * 100, "é" * 37):
+            status, body = self.request("change_password", {"old_password": password, "new_password": invalid}, token)
+            self.assertEqual(status, 400)
+            self.assertIn("8-72 bytes", json.dumps(body))
+        status, _ = self.request("login", {"username": username, "password": password})
+        self.assertEqual(status, 200)
 
 
 if __name__ == "__main__":

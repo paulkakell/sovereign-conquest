@@ -1,5 +1,7 @@
 # Commit notes for 01.06.10
 
+Implementation commit: `6f088424a78e85a05fd59c57702b367e0bbeea22`; PR #30.
+
 ```text
 fix(auth): validate startup secrets and enforce bcrypt limits (01.06.10)
 

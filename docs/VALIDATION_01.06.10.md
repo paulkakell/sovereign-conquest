@@ -9,8 +9,12 @@ logs and correct the bcrypt length mismatch. No separate issue was opened.
 Local Go unit/regression tests passed across all packages using Go 1.27.1.
 All 149 release-safeguard JavaScript tests and 35 Python Compose, container-policy
 and database-recovery tests passed. JavaScript and shell syntax checks and
-`git diff --check` passed. Additional static/race/build validation and hosted
-container/security workflows are in progress; they must pass before publication.
+`git diff --check` passed. The full race suite, Go vet, module verification,
+Gosec and a static CGO-disabled API build also passed locally. Govulncheck found
+zero reachable or imported-package vulnerabilities; its module-only advisory
+GO-2026-5932 concerns the unused `golang.org/x/crypto/openpgp` package. No
+dependency update is needed for the bcrypt package used here. Hosted
+container/security workflows must also pass before publication.
 The repository includes unit, subprocess and integration coverage for:
 
 - Empty and boundary credentials in development, production and unset APP_ENV.
@@ -51,3 +55,25 @@ checks occur before hashing; hashing cost and database queries are unchanged.
 Existing health/readiness endpoints and metrics are retained. Container smoke
 tests cover startup and auth requests; no gameplay/load-path change needs a new
 load benchmark. Invalid startup exits 1 and keeps the existing log prefix.
+
+## Hosted validation evidence
+
+Implementation source: `6f088424a78e85a05fd59c57702b367e0bbeea22`, PR #30.
+The API/runtime/configuration implementation is unchanged by the subsequent
+validation-record and integration-fixture update. The first container run passed
+startup validation, builds, inventory checks, scans and CodeQL, then exceeded the
+existing authentication rate limit during repeated password tests. The fixture
+now uses exactly nine register/login requests plus the original smoke registration,
+within the existing 10-request window. Rate limiting is unchanged and enabled.
+
+| Gate | Evidence |
+|---|---|
+| CI | [Run 36366312180](https://github.com/paulkakell/sovereign-conquest/actions/runs/36366312180) |
+| Build Validation | [Run 36366312209](https://github.com/paulkakell/sovereign-conquest/actions/runs/36366312209) |
+| Database Startup | [Run 36366312232](https://github.com/paulkakell/sovereign-conquest/actions/runs/36366312232) |
+
+GitHub's additional AI findings job failed before analysis because its configured
+model was unsupported (`CAPIError: 400 The requested model is not supported`).
+This is separate from CodeQL, Gosec, dependency/image scans and the repository's
+required release gates. No workflow or approval policy was disabled or relaxed.
+[Service failure log](https://github.com/paulkakell/sovereign-conquest/actions/runs/36366314726).

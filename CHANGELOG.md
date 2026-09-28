@@ -28,7 +28,8 @@
 
 Base: `1b1b03d0eb8bb72efd4d6079292798eb2bd718d3` (v01.06.09, PR #29).
 Reference: user-requested startup validation and password-limit correction;
-no separate issue. See [release notes](docs/RELEASE_NOTES_01.06.10.md),
+no separate issue. Implementation: `6f088424a78e85a05fd59c57702b367e0bbeea22`,
+PR #30. See [release notes](docs/RELEASE_NOTES_01.06.10.md),
 [validation/security review](docs/VALIDATION_01.06.10.md), and
 [commit notes](docs/COMMIT_NOTES_01.06.10.md).
 
