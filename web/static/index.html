@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sovereign Conquest</title>
-  <link rel="stylesheet" href="/style.css?v=01.06.11" />
+  <link rel="stylesheet" href="/style.css?v=01.06.12" />
 </head>
 <body>
   <div class="wrap">
@@ -85,6 +85,19 @@
       </header>
 
       <div id="pageGame">
+        <div class="card cmd">
+          <h2>Command</h2>
+          <div class="cmdline">
+            <input id="commandInput" placeholder="SCAN | MOVE 2 | TRADE BUY ORE 10 | PLANET INFO | MINE DEPLOY 10 | SHIPYARD" />
+            <button id="sendCmdBtn">Send</button>
+          </div>
+          <div id="cmdMsg" class="msg"></div>
+          <details class="help">
+            <summary>Help</summary>
+            <div id="helpText" class="pre"></div>
+          </details>
+        </div>
+
         <div class="grid2">
           <section class="card" id="status">
             <h2>Status</h2>
@@ -119,19 +132,6 @@
             <h2>Activity</h2>
             <div id="log" class="log"></div>
           </section>
-        </div>
-
-        <div class="card cmd">
-          <h2>Command</h2>
-          <div class="cmdline">
-            <input id="commandInput" placeholder="SCAN | MOVE 2 | TRADE BUY ORE 10 | PLANET INFO | MINE DEPLOY 10 | SHIPYARD" />
-            <button id="sendCmdBtn">Send</button>
-          </div>
-          <div id="cmdMsg" class="msg"></div>
-          <details class="help">
-            <summary>Help</summary>
-            <div id="helpText" class="pre"></div>
-          </details>
         </div>
       </div>
 
@@ -201,11 +201,11 @@
     </section>
 
     <footer class="foot muted">
-      <small>v<span id="ver">01.06.11</span> | <a href="/bug.html" target="_blank" rel="noopener">Report A Bug</a></small>
+      <small>v<span id="ver">01.06.12</span> | <a href="/bug.html" target="_blank" rel="noopener">Report A Bug</a></small>
     </footer>
   </div>
 
-  <script src="/compat-010601.js?v=01.06.11"></script>
-  <script src="/app.js?v=01.06.11"></script>
+  <script src="/compat-010601.js?v=01.06.12"></script>
+  <script src="/app.js?v=01.06.12"></script>
 </body>
 </html>

@@ -113,8 +113,29 @@ button.ghost:hover { border-color: var(--accent); }
 .trade button { margin-top: 0; }
 @media (max-width: 900px) { .trade { grid-template-columns: 1fr; } }
 
-.cmd { display: grid; grid-template-columns: 1fr 120px; gap: 10px; }
-.cmd button { margin-top: 0; }
+.cmd {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  text-align: right;
+}
+.cmd > * { max-width: 100%; }
+.cmd h2, .cmd .msg { margin: 0; }
+.cmd .msg:empty { display: none; }
+.cmd .cmdline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  width: min(100%, 640px);
+}
+.cmd input { min-width: 0; text-align: right; }
+.cmd button { margin-top: 0; text-align: right; }
+.cmd .msg, .cmd .help { overflow-wrap: anywhere; }
+.cmd summary { width: fit-content; margin-left: auto; cursor: pointer; }
+.cmd .pre { white-space: pre-wrap; }
 
 .dmRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 900px) { .dmRow { grid-template-columns: 1fr; } }
@@ -141,8 +162,6 @@ button.ghost:hover { border-color: var(--accent); }
 
 @media (max-width: 600px) {
   .wrap { padding: 12px; }
-  .cmd { grid-template-columns: 1fr; }
-  .cmd button { width: 100%; }
   .inline { flex-wrap: wrap; }
   .inline input { width: 100%; }
   .topbar .right { justify-content: flex-start; }
