@@ -90,7 +90,7 @@ jobs:
         shell: bash
         env:
           SC_IMAGE: sovereign-conquest:validation
-          SC_EXPECTED_VERSION: '01.06.10'
+          SC_EXPECTED_VERSION: '01.06.11'
           SC_HOST_PORT: '18082'
           SC_NAME_PREFIX: validation
           SC_DB_PASSWORD: BuildValidationDatabasePassword
@@ -158,6 +158,25 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           output: codeql-results
+
+      - name: Reject high and critical CodeQL findings
+        run: node scripts/check-codeql-results.cjs codeql-results/*.sarif
+
+      - name: Verify default-branch alert resolution
+        if: github.ref == 'refs/heads/main'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const alerts = await github.paginate(github.rest.codeScanning.listAlertsForRepo, {
+              ...context.repo, state: 'open', ref: 'refs/heads/main', per_page: 100,
+            });
+            const high = alerts.filter(alert => ['high', 'critical'].includes(alert.rule.security_severity_level));
+            core.info(`Open high/critical code scanning alerts on main: ${high.length}`);
+            for (const alert_number of [2, 3, 4, 5]) {
+              const { data } = await github.rest.codeScanning.getAlert({ ...context.repo, alert_number });
+              core.info(JSON.stringify({ number: data.number, state: data.state, fixed_at: data.fixed_at }));
+            }
+            if (high.length) core.setFailed('High or critical code scanning alerts remain on main');
 
       - name: Retain CodeQL evidence
         if: always()
