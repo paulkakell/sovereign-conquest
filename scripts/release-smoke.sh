@@ -18,6 +18,8 @@ for variable in "${required_variables[@]}"; do
   fi
 done
 
+python3 scripts/test-api-startup.py
+
 run_id="${GITHUB_RUN_ID:-$$}"
 suffix="${run_id: -6}"
 prefix="$(printf '%s' "$SC_NAME_PREFIX" | tr -c '[:alnum:]_.-' '-')"
@@ -180,5 +182,7 @@ curl --fail --silent --show-error \
   --header 'Content-Type: application/json' \
   --data '{"type":"SCAN"}' \
   "$base_url/api/command" | jq --exit-status '.ok == true or .message != null' >/dev/null
+
+SC_SMOKE_BASE_URL="$base_url" python3 scripts/test-api-passwords.py
 
 printf 'Smoke test passed for %s on port %s.\n' "$SC_IMAGE" "$SC_HOST_PORT"

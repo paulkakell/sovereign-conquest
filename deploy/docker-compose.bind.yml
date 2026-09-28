@@ -1,4 +1,4 @@
-# Deployment configuration 01.06.09. Use as a standalone Compose file.
+# Deployment configuration 01.06.10. Use as a standalone Compose file.
 # The database scripts also work with the published 01.06.06 API image.
 name: conquest
 services:
@@ -31,7 +31,7 @@ services:
       - net_internal
 
   api:
-    image: "${SC_IMAGE:-ghcr.io/paulkakell/sovereign-conquest:01.06.09}"
+    image: "${SC_IMAGE:-ghcr.io/paulkakell/sovereign-conquest:01.06.10}"
     pull_policy: "${SC_PULL_POLICY:-always}"
     restart: unless-stopped
     init: true

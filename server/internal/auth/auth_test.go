@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -8,6 +9,26 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
+
+func TestPasswordLengthBoundariesMatchBcrypt(t *testing.T) {
+	for _, input := range []string{strings.Repeat("a", 8), strings.Repeat("a", 72), strings.Repeat("é", 36)} {
+		if err := ValidatePasswordLength(input); err != nil {
+			t.Fatal(err)
+		}
+		hash, err := HashPassword(input)
+		if err != nil || !CheckPassword(hash, input) {
+			t.Fatal("valid boundary password did not round-trip")
+		}
+	}
+	for _, input := range []string{strings.Repeat("a", 7), strings.Repeat("a", 73), strings.Repeat("é", 37)} {
+		if err := ValidatePasswordLength(input); err == nil {
+			t.Fatal("invalid password length accepted")
+		}
+	}
+	if _, err := HashPassword(strings.Repeat("a", 73)); !errors.Is(err, bcrypt.ErrPasswordTooLong) {
+		t.Fatalf("unexpected bcrypt upper limit: %v", err)
+	}
+}
 
 func TestHashRoundTripAndCost(t *testing.T) {
 	input := strings.Repeat("a", 24)

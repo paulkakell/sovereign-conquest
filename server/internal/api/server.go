@@ -215,8 +215,8 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "username must be 3-20 chars")
 		return
 	}
-	if len(req.Password) < 8 || len(req.Password) > 100 {
-		writeError(w, http.StatusBadRequest, "password must be 8-100 chars")
+	if err := auth.ValidatePasswordLength(req.Password); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -374,8 +374,8 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	if len(req.NewPassword) < 8 || len(req.NewPassword) > 100 {
-		writeError(w, http.StatusBadRequest, "password must be 8-100 chars")
+	if err := auth.ValidatePasswordLength(req.NewPassword); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
