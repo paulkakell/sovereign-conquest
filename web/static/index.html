@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sovereign Conquest</title>
-  <link rel="stylesheet" href="/style.css?v=01.06.13" />
+  <link rel="stylesheet" href="/style.css?v=01.07.00" />
 </head>
 <body>
   <div class="wrap">
@@ -79,6 +79,7 @@
             🔔 Messages <span id="msgBadge" class="badge" style="display:none">0</span>
           </button>
           <button class="ghost" id="adminMapBtn" title="Admin universe map" style="display:none">🗺 Map</button>
+          <button class="ghost" id="adminUsersBtn" style="display:none">User Management</button>
           <button class="ghost" id="refreshBtn" title="Refresh State">Refresh</button>
           <button class="ghost" id="logoutBtn">Logout</button>
         </div>
@@ -187,6 +188,55 @@
         </section>
       </div>
 
+      <div id="pageAdminUsers" style="display:none">
+        <section class="card">
+          <h2>User Management</h2>
+          <p class="muted">Edit accounts and player records, reset passwords, or manage access.</p>
+          <form id="userSearchForm" class="user-search">
+            <label>Username or user ID<input id="userSearch" type="search" maxlength="64" placeholder="Search accounts" /></label>
+            <label>Account status<select id="userStatusFilter"><option value="">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option><option value="banned">Banned</option></select></label>
+            <button type="submit">Search</button>
+          </form>
+          <div id="userListMsg" class="msg" role="status" aria-live="polite"></div>
+          <div class="user-table-wrap">
+            <table class="port"><caption class="muted">Accounts, 50 per page</caption><thead><tr><th scope="col">Username</th><th scope="col">Role</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead><tbody id="userList"></tbody></table>
+          </div>
+          <div class="actions"><button id="usersFirstPage" type="button" class="ghost">First page</button><button id="usersNextPage" type="button" class="ghost" disabled>Next page</button></div>
+        </section>
+        <section id="userEditor" class="card user-editor" style="display:none" aria-labelledby="userEditorTitle">
+          <div class="messagesHeader"><h2 id="userEditorTitle" tabindex="-1">Edit account</h2><button id="userReload" type="button" class="ghost">Reload account</button></div>
+          <p id="userMetadata" class="muted user-metadata"></p>
+          <form id="userEditForm">
+            <fieldset id="userEditFields"><legend>Account</legend>
+              <div class="grid2">
+                <label>Username<input id="editUsername" required minlength="3" maxlength="20" autocomplete="off" /></label>
+                <div><label class="check-label"><input id="editIsAdmin" type="checkbox" /> Administrator</label><label class="check-label"><input id="editMustChange" type="checkbox" /> Require password change</label></div>
+                <label>New password<input id="editPassword" type="password" autocomplete="new-password" aria-describedby="userPasswordHelp" /></label>
+                <label>Confirm new password<input id="editPasswordConfirm" type="password" autocomplete="new-password" /></label>
+              </div>
+              <p id="userPasswordHelp" class="muted">Leave password fields blank to keep the current password. New passwords must be 8-72 UTF-8 bytes. Account or permission changes end existing sessions.</p>
+              <fieldset id="userPlayerFields"><legend>Player, ship and cargo</legend><div id="userPlayerInputs" class="grid2"></div><p class="muted">Level is calculated from XP. Set ship capacities and upgrades explicitly. Turns cannot exceed their maximum, and cargo must fit its capacity.</p></fieldset>
+              <button id="userSave" type="submit">Save changes</button>
+            </fieldset>
+          </form>
+          <div id="userEditMsg" class="msg" role="status" aria-live="polite"></div>
+          <form id="userModerationForm">
+            <fieldset id="userModerationFields"><legend>Account access</legend>
+              <p id="userCurrentStatus" class="user-metadata"></p>
+              <label>Reason<textarea id="userModerationReason" rows="3" maxlength="1000" required placeholder="Reason for this change, recorded in the admin audit log"></textarea></label>
+              <label>Suspension ends (your local time, optional)<input id="userSuspendedUntil" type="datetime-local" /></label>
+              <p class="muted">A suspension expires at the chosen time, or lasts until restored if no time is set. A ban lasts until an administrator restores access. Either action ends existing sessions.</p>
+              <div class="actions">
+                <button type="submit" id="userSuspend" data-action="suspend">Suspend user</button>
+                <button type="submit" id="userBan" data-action="ban" class="danger">Ban user</button>
+                <button type="submit" id="userActivate" data-action="activate" class="ghost">Restore access</button>
+              </div>
+            </fieldset>
+          </form>
+          <div id="userModerationMsg" class="msg" role="status" aria-live="polite"></div>
+        </section>
+      </div>
+
       <div id="pageAdminMap" style="display:none">
         <section class="card" id="adminMapCard">
           <h2>Universe Map</h2>
@@ -201,11 +251,12 @@
     </section>
 
     <footer class="foot muted">
-      <small>v<span id="ver">01.06.13</span> | <a href="/bug.html" target="_blank" rel="noopener">Report A Bug</a></small>
+      <small>v<span id="ver">01.07.00</span> | <a href="/bug.html" target="_blank" rel="noopener">Report A Bug</a></small>
     </footer>
   </div>
 
-  <script src="/compat-010601.js?v=01.06.13"></script>
-  <script src="/app.js?v=01.06.13"></script>
+  <script src="/compat-010601.js?v=01.07.00"></script>
+  <script src="/admin-users.js?v=01.07.00"></script>
+  <script src="/app.js?v=01.07.00"></script>
 </body>
 </html>

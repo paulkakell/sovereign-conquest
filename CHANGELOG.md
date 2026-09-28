@@ -1,5 +1,23 @@
 # Changelog
 
+## 01.07.00 - 2026-09-28
+
+### Additive
+- Add administrator User Management with search, status filters, pagination, account and player editing, and password resets.
+- Add timed/indefinite suspension, banning and restoration with reasons, revision conflicts and transactional audit records.
+- Add backward-compatible account columns and PostgreSQL/form/concurrency/migration regression coverage.
+
+### Fixes
+- Enforce persisted session versions and account restrictions on all protected endpoints, including administrative routes.
+- Revoke earlier sessions on password/role/status changes; return a replacement token after self-service password changes.
+- Prevent self-lockout/concurrent admin demotions and prevent bootstrap recreation after an administrator is renamed.
+
+### Compatibility and release
+- No new runtime dependencies or environment variables. Schema additions preserve existing accounts as active.
+- Password-required accounts must complete their password change before protected actions. Clients must retain the replacement token after password changes.
+- IDs/audit timestamps stay read-only; level follows XP. Older binaries ignore restrictions, so rollback requires maintenance access controls.
+- Base: v01.06.13 / 609a60c. See docs/USER_MANAGEMENT.md, docs/VALIDATION_01.07.00.md and versioned release/commit notes. Implementation hashes are recorded in the pull request.
+
 ## 01.06.13 - 2026-09-27
 
 ### Fixes

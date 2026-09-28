@@ -1113,12 +1113,13 @@ the production competitive-season transition without the M6 work below.
 
 #### F04. Password changes do not revoke existing sessions. Confirmed from source.
 
-Claims.SessionVersion exists in server/internal/auth/auth.go:13-17, but login
-and registration mint version-zero tokens with seven-day lifetimes
-(A/server.go:311,350). authMiddleware does not check a persisted session version;
-handleChangePassword only updates the hash and timestamp (398-402). Add and
-enforce session_version for normal and admin routes, including bootstrap recovery.
-Also align the 8-100-byte API password limit with bcrypt's 72-byte maximum.
+Resolved in 01.07.00 for session revocation: users.session_version is persisted,
+login mints the current version, every protected endpoint validates the database
+record, and password resets, bootstrap recovery, role changes and moderation revoke
+older tokens. Required password changes gate administrative operations. The API
+password length mismatch was resolved in 01.06.10. See USER_MANAGEMENT.md and the
+PostgreSQL integration suite. SC-I03 remains partly planned because its reset/spawn
+consistency work is separate.
 
 #### F05. Scheduled-job locks do not deduplicate intervals. Source-derived risk.
 
@@ -1848,3 +1849,16 @@ Even if the game is turn-based, use websockets or server-sent events to push:
 
 END SUPPLIED BASELINE
 ```
+
+## Delivered addition: 01.07.00 administrator user management
+
+Classification: additive feature with authentication fixes. Added searchable account
+management, account and player editing, password resets, timed/indefinite suspensions,
+manual bans/restoration, audit records, optimistic revisions and administrator
+lockout safeguards. SC-I03 session-revocation work is delivered; reset/spawn work is
+still pending. The earlier M2 label of 01.07.00 was provisional and is now allocated
+to this release; assign a fresh feature version when that milestone is implemented.
+
+Evidence: server/internal/api/admin_users.go, server/internal/api/session.go,
+server/internal/auth/session.go, server/internal/schema/user_management.go,
+web/static/admin-users.js, docs/USER_MANAGEMENT.md, and the admin integration tests.

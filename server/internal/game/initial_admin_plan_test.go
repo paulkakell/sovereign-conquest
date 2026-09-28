@@ -11,6 +11,12 @@ func TestDecideInitialAdminPlan(t *testing.T) {
 		want            initialAdminPlan
 	}{
 		{
+			name:           "renamed bootstrap account with another admin => noop",
+			userFound:      false,
+			anyAdminsExist: true,
+			want:           planNoopExistingNonAdmin,
+		},
+		{
 			name:            "missing user => create",
 			userFound:       false,
 			existingIsAdmin: false,

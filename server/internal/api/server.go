@@ -64,10 +64,6 @@ func (s *Server) Router() http.Handler {
 	r.Post("/api/register", s.handleRegister)
 	r.Post("/api/login", s.handleLogin)
 
-	if s.Cfg.AdminSecret != "" {
-		r.Post("/api/admin/soft_wipe", s.handleAdminSoftWipe)
-	}
-
 	r.Group(func(protected chi.Router) {
 		protected.Use(s.authMiddleware)
 		protected.Get("/api/state", s.handleState)
@@ -82,7 +78,17 @@ func (s *Server) Router() http.Handler {
 		protected.Post("/api/messages/send", s.handleSendMessage)
 		protected.Post("/api/messages/report", s.handleReportMessage)
 		protected.Get("/api/messages/attachments/{id}", s.handleDownloadMessageAttachment)
-		protected.Get("/api/admin/ansi_map", s.handleAdminAnsiMap)
+		protected.Group(func(admin chi.Router) {
+			admin.Use(s.adminMiddleware)
+			admin.Get("/api/admin/ansi_map", s.handleAdminAnsiMap)
+			admin.Get("/api/admin/users", s.handleAdminUsers)
+			admin.Get("/api/admin/users/{id}", s.handleAdminUser)
+			admin.Patch("/api/admin/users/{id}", s.handleAdminUserUpdate)
+			admin.Post("/api/admin/users/{id}/moderation", s.handleAdminUserModeration)
+			if s.Cfg.AdminSecret != "" {
+				admin.Post("/api/admin/soft_wipe", s.handleAdminSoftWipe)
+			}
+		})
 		protected.Post("/api/bug_report", s.handleBugReport)
 	})
 
@@ -97,11 +103,13 @@ type ctxKey string
 
 const ctxPlayerID ctxKey = "player_id"
 const ctxUserID ctxKey = "user_id"
+const ctxSession ctxKey = "session"
+const ctxClaims ctxKey = "claims"
 
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := r.Header.Get("Authorization")
-		if h == "" || !strings.HasPrefix(h, "Bearer ") {
+		if len(h) > 8192 || !strings.HasPrefix(h, "Bearer ") {
 			writeError(w, http.StatusUnauthorized, "missing bearer token")
 			return
 		}
@@ -111,8 +119,22 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "invalid token")
 			return
 		}
+		if s.Pool == nil {
+			writeError(w, http.StatusServiceUnavailable, "database unavailable")
+			return
+		}
+		session, err := auth.LoadSession(r.Context(), s.Pool, claims.UserID, claims.PlayerID)
+		if !checkSession(w, session, claims, err) {
+			return
+		}
+		if session.MustChangePassword && r.URL.Path != "/api/state" && r.URL.Path != "/api/change_password" {
+			writeAccessError(w, http.StatusForbidden, "password_change_required", "Change your password before continuing.")
+			return
+		}
 		ctx := context.WithValue(r.Context(), ctxPlayerID, claims.PlayerID)
 		ctx = context.WithValue(ctx, ctxUserID, claims.UserID)
+		ctx = context.WithValue(ctx, ctxSession, session)
+		ctx = context.WithValue(ctx, ctxClaims, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -279,12 +301,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	req.Username = strings.TrimSpace(req.Username)
 
 	var userID, playerID, hash string
+	var session auth.Session
 	err := s.Pool.QueryRow(r.Context(), `
-		SELECT u.id, p.id, u.password_hash
+		SELECT u.id, p.id, u.password_hash, u.session_version, u.account_status, u.suspended_until
 		FROM users u
 		JOIN players p ON p.user_id = u.id
 		WHERE u.username = $1
-	`, req.Username).Scan(&userID, &playerID, &hash)
+	`, req.Username).Scan(&userID, &playerID, &hash, &session.Version, &session.Status, &session.SuspendedUntil)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
@@ -293,8 +316,11 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
+	if !checkAccountAccess(w, session) {
+		return
+	}
 
-	token, err := auth.MintToken(s.Cfg.JWTSecret, userID, playerID, 7*24*time.Hour)
+	token, err := auth.MintTokenForSession(s.Cfg.JWTSecret, userID, playerID, session.Version, 7*24*time.Hour)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to mint token")
 		return
@@ -342,17 +368,32 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = s.Pool.Exec(r.Context(), `
+	// Compare the original hash and session version so a concurrent reset or ban
+	// cannot be overwritten by a password-change request already in flight.
+	session, _ := r.Context().Value(ctxSession).(auth.Session)
+	var version int64
+	err = s.Pool.QueryRow(r.Context(), `
 		UPDATE users
-		SET password_hash=$2, must_change_password=false, password_changed_at=now()
-		WHERE id=$1
-	`, uid, newHash)
+		SET password_hash=$2, must_change_password=false, password_changed_at=now(),
+		    session_version=session_version+1, account_revision=account_revision+1
+		WHERE id=$1 AND password_hash=$3 AND session_version=$4
+		RETURNING session_version
+	`, uid, newHash, hash, session.Version).Scan(&version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeAccessError(w, http.StatusUnauthorized, "session_revoked", "Account changed. Please sign in again.")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	token, err := auth.MintTokenForSession(s.Cfg.JWTSecret, uid, mustPlayerID(r.Context()), version, 7*24*time.Hour)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Password updated. Please sign in again.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "token": token})
 }
 
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {

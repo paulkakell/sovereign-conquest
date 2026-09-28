@@ -9,7 +9,7 @@
   let currentPlayer = null;
   let currentSector = null;
   let unreadTimer = null;
-  let activePage = "game"; // game | messages | adminMap
+  let activePage = "game"; // game | messages | adminMap | adminUsers
   let activeMsgTab = "inbox"; // inbox | sent
 
   // Auth UI
@@ -38,6 +38,8 @@
   const messagesNavBtn = $("messagesNavBtn");
   const msgBadge = $("msgBadge");
   const adminMapBtn = $("adminMapBtn");
+  const adminUsersBtn = $("adminUsersBtn");
+  const userManager = window.createAdminUserManager({ apiFetch, logout, currentUser: () => currentPlayer });
   const refreshBtn = $("refreshBtn");
   const logoutBtn = $("logoutBtn");
 
@@ -147,6 +149,10 @@
       const err = new Error(msg || `HTTP ${res.status}`);
       err.status = res.status;
       err.data = data;
+      if (token && (data?.code === "session_revoked" || data?.code === "account_suspended" || data?.code === "account_banned")) {
+        logout();
+        authMsg.textContent = msg;
+      }
       throw err;
     }
 
@@ -179,6 +185,7 @@
     show(pageGame, page === "game");
     show(pageMessages, page === "messages");
     show(pageAdminMap, page === "adminMap");
+    show($("pageAdminUsers"), page === "adminUsers");
   }
 
   function updateBadge(unread) {
@@ -246,8 +253,10 @@
     // Admin-only UI
     if (p.is_admin) {
       show(adminMapBtn, true);
+      show(adminUsersBtn, true);
     } else {
       show(adminMapBtn, false);
+      show(adminUsersBtn, false);
     }
   }
 
@@ -672,6 +681,9 @@
     stopUnreadPolling();
     showAuthUI();
     setAuthTab("login");
+    currentPlayer = null;
+    userManager.clear();
+    show(adminUsersBtn, false);
   }
 
   // Event wiring
@@ -699,10 +711,14 @@
   $("pwChangeForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {
-      await apiFetch("/api/change_password", {
+      const data = await apiFetch("/api/change_password", {
         method: "POST",
         json: { old_password: $("oldPass").value, new_password: $("newPass").value },
       });
+      if (data.token) {
+        token = data.token;
+        localStorage.setItem("token", token);
+      }
       authMsg.textContent = "Password updated.";
       setAuthTab("login");
     } catch (err) {
@@ -747,6 +763,12 @@
     } else {
       setPage("game");
     }
+  });
+
+  adminUsersBtn.addEventListener("click", async () => {
+    if (activePage === "adminUsers") { setPage("game"); return; }
+    setPage("adminUsers");
+    await userManager.load();
   });
 
   inboxTabBtn.addEventListener("click", async () => {

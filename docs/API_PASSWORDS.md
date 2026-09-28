@@ -28,3 +28,9 @@ Login semantics and existing password hashes are unchanged.
 The environment variable `INITIAL_ADMIN_PASSWORD` is a separate bootstrap
 setting with a stronger **16-72-byte** requirement after surrounding whitespace
 is trimmed. See [startup configuration](CONFIGURATION.md) for all four secrets.
+
+## Session behavior from 01.07.00
+
+Successful `POST /api/change_password` returns `{ "ok": true, "token": "<replacement bearer token>" }`. Store the returned token before further requests. All earlier tokens for that account are revoked. A password-required account may access `/api/state` and `/api/change_password` only. The bundled client handles the replacement token automatically.
+
+Administrator resets use the same 8-72 UTF-8 byte limits and normally require a password change at next login. See [User Management](USER_MANAGEMENT.md). Suspension and banning block both login and authenticated API access. Expiry or restoration requires a fresh login; old tokens remain revoked.
