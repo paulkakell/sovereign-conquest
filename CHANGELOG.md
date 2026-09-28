@@ -1,5 +1,30 @@
 # Changelog
 
+## 01.06.13 - 2026-09-27
+
+### Fixes
+
+- Correct the Command pane to left alignment following the user's clarification:
+  heading, input and placeholder, Send button, feedback, Help toggle and help text.
+- Keep Command directly below Logout and above Status. Preserve the responsive
+  input width, long-text wrapping, internal control order and command handlers.
+
+### Additive
+
+- Update active version/image/cache references, documentation and release notes.
+- Prepare guarded v01.06.13 tagging after the existing main-branch release gates.
+
+### Compatibility
+
+- Presentation-only fix. No breaking API, configuration, dependency, schema,
+  credential, logging or gameplay changes.
+
+Base: `8c798ca73bcc75eb300b02f64d688a5dc1df3dac` (v01.06.12, PR #32).
+Reference: user correction from right to left alignment; no separate issue.
+See [release notes](docs/RELEASE_NOTES_01.06.13.md),
+[validation](docs/VALIDATION_01.06.13.md), and
+[commit notes](docs/COMMIT_NOTES_01.06.13.md).
+
 ## 01.06.12 - 2026-09-27
 
 ### Fixes

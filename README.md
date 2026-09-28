@@ -1,14 +1,13 @@
 # Sovereign Conquest
 
-Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. This source version is **v01.06.12**.
+Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. This source version is **v01.06.13**.
 
 ## Current maintenance release
 
-See the [01.06.12 release notes](docs/RELEASE_NOTES_01.06.12.md),
-[validation record](docs/VALIDATION_01.06.12.md), and
+See the [01.06.13 release notes](docs/RELEASE_NOTES_01.06.13.md),
+[validation record](docs/VALIDATION_01.06.13.md), and
 [existing code review findings](docs/CODE_REVIEW_01.06.04.md). This maintenance
-release moves Command below Logout and above Status, and right-aligns the
-entire pane on desktop and mobile, including
+release corrects the Command pane to left alignment on desktop and mobile, including
 its heading, input, Send button, feedback and expandable Help.
 See the [web file security contract](docs/WEB_FILE_SECURITY.md),
 [password API contract](docs/API_PASSWORDS.md), and
@@ -38,11 +37,11 @@ The first milestone addresses database migration coverage, port demand, repeatab
 The repository publishes one combined API and web image:
 
 ```bash
-docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.12
+docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.13
 docker pull ghcr.io/paulkakell/sovereign-conquest:main
 ```
 
-`01.06.12` is the release image tag, available only after all release gates pass. `v01.06.11` remains the rollback source baseline. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
+`01.06.13` is the release image tag, available only after all release gates pass. `v01.06.12` remains the rollback source baseline. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
 
 The publication workflow scans and smoke-tests the built image before moving public tags. It also emits a source-SHA tag and provenance attestation. See the [container security review](docs/SECURITY_REVIEW_01.06.06.md) for the reported CVEs and verification policy.
 
@@ -61,7 +60,7 @@ Every state-changing game action is validated on the server and applied through 
 The Command pane sits below the topbar's Logout button and above Status.
 Enter a command such as `SCAN`, `MOVE 2`, or `TRADE BUY ORE 10`, then press
 Enter or click **Send**. The heading, input, button, feedback and **Help** share
-the pane's right edge. Expand **Help** to view command syntax. The input fits
+the pane's left edge. Expand **Help** to view command syntax. The input fits
 small screens, and long feedback/help text wraps inside the pane.
 
 ## Existing database password failures
@@ -118,7 +117,7 @@ The former standalone `web` service has been removed. Use `docker compose logs a
 A local source build remains available outside Compose:
 
 ```bash
-docker build -t sovereign-conquest:01.06.12 .
+docker build -t sovereign-conquest:01.06.13 .
 ```
 
 The combined image serves the API and web UI on port 8080. Production mode rejects weak secrets and database connections without transport verification.
