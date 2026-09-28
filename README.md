@@ -1,15 +1,18 @@
 # Sovereign Conquest
 
-Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. This source version is **v01.06.10**.
+Sovereign Conquest is a turn-based browser game built around an authoritative Go command engine, PostgreSQL state, and a single-page web client. This source version is **v01.06.11**.
 
 ## Current maintenance release
 
-See the [01.06.10 release notes](docs/RELEASE_NOTES_01.06.10.md),
-[validation record](docs/VALIDATION_01.06.10.md), and
+See the [01.06.11 release notes](docs/RELEASE_NOTES_01.06.11.md),
+[validation record](docs/VALIDATION_01.06.11.md), and
 [existing code review findings](docs/CODE_REVIEW_01.06.04.md). This maintenance
-release validates all four secrets before API startup in every environment, logs
-all invalid settings without their values, and aligns registration/password changes
-with bcrypt's 72-byte limit. See the [password API contract](docs/API_PASSWORDS.md). See the [database startup guide](docs/DATABASE_STARTUP.md). The roadmap implementation packets remain planned. Use one API
+release fixes CodeQL alerts #2, #3, #4 and #5 by confining web file access to
+`WEB_ROOT`, including symlinks, directory indexes and SPA fallback pages. It also
+blocks releases with high or critical CodeQL findings and retains scan evidence.
+See the [web file security contract](docs/WEB_FILE_SECURITY.md),
+[password API contract](docs/API_PASSWORDS.md), and
+[database startup guide](docs/DATABASE_STARTUP.md). The roadmap implementation packets remain planned. Use one API
 replica until the documented scheduler issue is repaired.
 
 ## Community and support
@@ -35,11 +38,11 @@ The first milestone addresses database migration coverage, port demand, repeatab
 The repository publishes one combined API and web image:
 
 ```bash
-docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.10
+docker pull ghcr.io/paulkakell/sovereign-conquest:01.06.11
 docker pull ghcr.io/paulkakell/sovereign-conquest:main
 ```
 
-`01.06.10` is the release image tag, available only after all release gates pass. `v01.06.09` remains the rollback source baseline. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
+`01.06.11` is the release image tag, available only after all release gates pass. `v01.06.10` remains the rollback source baseline. The `main` tag moves after a validated push to the default branch. For the strongest reproducibility guarantee, set `SC_IMAGE` to a verified image digest.
 
 The publication workflow scans and smoke-tests the built image before moving public tags. It also emits a source-SHA tag and provenance attestation. See the [container security review](docs/SECURITY_REVIEW_01.06.06.md) for the reported CVEs and verification policy.
 
@@ -107,7 +110,7 @@ The former standalone `web` service has been removed. Use `docker compose logs a
 A local source build remains available outside Compose:
 
 ```bash
-docker build -t sovereign-conquest:01.06.10 .
+docker build -t sovereign-conquest:01.06.11 .
 ```
 
 The combined image serves the API and web UI on port 8080. Production mode rejects weak secrets and database connections without transport verification.

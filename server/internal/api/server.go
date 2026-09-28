@@ -8,8 +8,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -93,57 +91,6 @@ func (s *Server) Router() http.Handler {
 	}
 
 	return r
-}
-
-func spaHandler(root string) http.HandlerFunc {
-	indexPath := filepath.Join(root, "index.html")
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			http.NotFound(w, r)
-			return
-		}
-		if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") {
-			writeError(w, http.StatusNotFound, "not found")
-			return
-		}
-
-		rel := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
-		if rel == "." || rel == "/" || rel == "" {
-			serveNoStoreFile(w, r, indexPath)
-			return
-		}
-
-		fullPath := filepath.Join(root, filepath.FromSlash(rel))
-		if info, err := os.Stat(fullPath); err == nil {
-			if info.IsDir() {
-				indexCandidate := filepath.Join(fullPath, "index.html")
-				if _, err := os.Stat(indexCandidate); err == nil {
-					serveNoStoreFile(w, r, indexCandidate)
-					return
-				}
-			} else {
-				if filepath.Ext(rel) == ".html" {
-					serveNoStoreFile(w, r, fullPath)
-					return
-				}
-				http.ServeFile(w, r, fullPath)
-				return
-			}
-		}
-
-		if filepath.Ext(rel) != "" {
-			http.NotFound(w, r)
-			return
-		}
-
-		serveNoStoreFile(w, r, indexPath)
-	}
-}
-
-func serveNoStoreFile(w http.ResponseWriter, r *http.Request, filename string) {
-	w.Header().Set("Cache-Control", "no-store")
-	http.ServeFile(w, r, filename)
 }
 
 type ctxKey string

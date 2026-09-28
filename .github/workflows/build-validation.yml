@@ -90,7 +90,7 @@ jobs:
         shell: bash
         env:
           SC_IMAGE: sovereign-conquest:validation
-          SC_EXPECTED_VERSION: '01.06.10'
+          SC_EXPECTED_VERSION: '01.06.11'
           SC_HOST_PORT: '18082'
           SC_NAME_PREFIX: validation
           SC_DB_PASSWORD: BuildValidationDatabasePassword
@@ -118,6 +118,26 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Record existing code scanning alerts
+        if: github.event_name != 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const alerts = await github.paginate(github.rest.codeScanning.listAlertsForRepo, {
+              ...context.repo, state: 'open', per_page: 100,
+            });
+            for (const alert of alerts) {
+              core.info(JSON.stringify({
+                number: alert.number, rule: alert.rule.id,
+                severity: alert.rule.security_severity_level,
+                description: alert.rule.description,
+                location: alert.most_recent_instance.location,
+                ref: alert.most_recent_instance.ref,
+                url: alert.html_url,
+              }));
+            }
+            core.info(`Open code scanning alerts: ${alerts.length}`);
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -136,3 +156,33 @@ jobs:
 
       - name: Analyze
         uses: github/codeql-action/analyze@v4
+        with:
+          output: codeql-results
+
+      - name: Reject high and critical CodeQL findings
+        run: node scripts/check-codeql-results.cjs codeql-results/*.sarif
+
+      - name: Verify default-branch alert resolution
+        if: github.ref == 'refs/heads/main'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const alerts = await github.paginate(github.rest.codeScanning.listAlertsForRepo, {
+              ...context.repo, state: 'open', ref: 'refs/heads/main', per_page: 100,
+            });
+            const high = alerts.filter(alert => ['high', 'critical'].includes(alert.rule.security_severity_level));
+            core.info(`Open high/critical code scanning alerts on main: ${high.length}`);
+            for (const alert_number of [2, 3, 4, 5]) {
+              const { data } = await github.rest.codeScanning.getAlert({ ...context.repo, alert_number });
+              core.info(JSON.stringify({ number: data.number, state: data.state, fixed_at: data.fixed_at }));
+            }
+            if (high.length) core.setFailed('High or critical code scanning alerts remain on main');
+
+      - name: Retain CodeQL evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-results-${{ github.sha }}
+          path: codeql-results/*.sarif
+          if-no-files-found: error
+          retention-days: 30

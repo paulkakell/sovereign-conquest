@@ -1,12 +1,16 @@
 # Sovereign Conquest Configuration
 
-This guide describes the configuration contract for version 01.06.10.
+This guide describes the configuration contract for version 01.06.11.
+
+Web files must remain beneath `WEB_ROOT`. Version 01.06.11 rejects escaping or
+absolute symlinks, including indexes and SPA fallback pages. Safe relative links
+continue to work. See [web file security and examples](WEB_FILE_SECURITY.md).
 
 ## Deployment profiles
 
 `docker-compose.yml` is a local-development profile. It pulls the combined API and web image from GHCR and does not contain Docker build definitions. PostgreSQL remains a separate service on the internal Compose network.
 
-Both profiles default to `ghcr.io/paulkakell/sovereign-conquest:01.06.10`. Use that tag only after publication gates pass. A verified digest gives immutable image identity; the publication workflow can refresh a version tag when rebuilding its base images. `main` remains an explicit opt-in moving tag.
+Both profiles default to `ghcr.io/paulkakell/sovereign-conquest:01.06.11`. Use that tag only after publication gates pass. A verified digest gives immutable image identity; the publication workflow can refresh a version tag when rebuilding its base images. `main` remains an explicit opt-in moving tag.
 
 The Compose profile uses local database transport and publishes loopback-only development ports. Do not expose it directly to the public Internet.
 
@@ -17,7 +21,7 @@ The active GHCR workflow publishes:
 | Tag | Purpose |
 |---|---|
 | `main` | Moving image for the current default branch |
-| `01.06.10` | Release image; published after successful release gates |
+| `01.06.11` | Release image; published after successful release gates |
 | `sha-<source-sha>` | Source-specific traceability |
 
 The candidate image is scanned and smoke-tested against fresh PostgreSQL before public tags move. The same validated image is pushed and attested. Scans include unfixed vulnerabilities and explicitly reject every CVE listed in the 01.06.06 security review, regardless of severity.
@@ -26,7 +30,7 @@ The candidate image is scanned and smoke-tested against fresh PostgreSQL before 
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `SC_IMAGE` | `ghcr.io/paulkakell/sovereign-conquest:01.06.10` | Combined API and web image |
+| `SC_IMAGE` | `ghcr.io/paulkakell/sovereign-conquest:01.06.11` | Combined API and web image |
 | `SC_PULL_POLICY` | `always` | Pull on startup; use `missing` for cached releases or `never` for an already loaded local image |
 | `WEB_PORT` | `3000` | Browser-facing host port |
 | `API_PORT` | `8080` | Compatibility host port for direct API access |
@@ -252,7 +256,7 @@ Compose no longer consumes build arguments. Manual `docker build` operations con
 
 ## Rollback
 
-Restore the prior Compose file and `.env`, and set `SC_IMAGE` to the previously verified 01.06.09 image digest or release tag. Do not delete volumes. This release does not alter the PostgreSQL schema or stored game data, so database rollback is not required. Keep compliant secrets when rolling back; rotating a JWT key invalidates sessions, and changing the bootstrap setting does not reset an existing administrator password.
+Restore the prior Compose file and `.env`, and set `SC_IMAGE` to the previously verified 01.06.10 image digest or release tag. Do not delete volumes. This release does not alter the PostgreSQL schema or stored game data, so database rollback is not required. Keep compliant secrets when rolling back; rotating a JWT key invalidates sessions, and changing the bootstrap setting does not reset an existing administrator password.
 
 ## Verification commands
 

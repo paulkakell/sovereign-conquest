@@ -1,5 +1,44 @@
 # Changelog
 
+## 01.06.11 - 2026-09-27
+
+### Fixes
+
+- Resolve CodeQL high-severity alerts #2, #3, #4 and #5 (`go/path-injection`,
+  CWE-22) in web serving. Replace request-derived filesystem paths with `os.Root`
+  access and serve the already opened regular file. Symlinks cannot escape the
+  configured web directory, including directory indexes and SPA fallback pages.
+- Reject traversal components, backslashes, NULs and unsafe filesystem failures
+  with a generic 404. Preserve normal assets, HTML cache controls, API 404s,
+  extensionless routes, HEAD, Range, conditional requests and index redirects.
+
+### Additive
+
+- Add exploit regressions, concurrent symlink replacement coverage and a static
+  file benchmark. Make high/critical CodeQL results fail Build Validation instead
+  of treating a successful upload as a clean scan. Retain SARIF evidence and
+  verify the four alerts' states after default-branch analysis.
+- Add release safeguards, configuration/security documentation, validation,
+  release notes and copyable commit notes for 01.06.11.
+
+### Compatibility
+
+- Security tightening: external or absolute web symlinks are no longer served.
+  Relative symlinks that remain within `WEB_ROOT` continue to work. Copy assets
+  into the web directory when upgrading a custom deployment that used escapes.
+- No API schema, database migration, dependency, gameplay, secret, port or storage
+  changes. The bundled web directory already meets the new constraints.
+
+Base: `d4654ff3234ce03382a51a9269352acd2a006ea3` (v01.06.10, PR #30).
+Implementation: `8467d3b30319847bdc3a6aeb249be5175ec76e6e`, PR #31.
+References: code scanning alerts [#2](https://github.com/paulkakell/sovereign-conquest/security/code-scanning/2),
+[#3](https://github.com/paulkakell/sovereign-conquest/security/code-scanning/3),
+[#4](https://github.com/paulkakell/sovereign-conquest/security/code-scanning/4), and
+[#5](https://github.com/paulkakell/sovereign-conquest/security/code-scanning/5).
+See [release notes](docs/RELEASE_NOTES_01.06.11.md),
+[validation](docs/VALIDATION_01.06.11.md), and
+[commit notes](docs/COMMIT_NOTES_01.06.11.md).
+
 ## 01.06.10 - 2026-09-27
 
 ### Fixes
